@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Commit & Conquer | Liveness Kiosk</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#0b1020;color:#eef2ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0,#1d2b52,#0b1020 55%);padding:28px}
+main{max-width:1050px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:clamp(25px,4vw,38px);margin:8px 0}.muted{color:#a8b3cc}.pill{border:1px solid #34415e;border-radius:99px;padding:7px 12px;font-size:12px}
+.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(270px,.8fr);gap:18px;margin-top:22px}
+.card{background:#111a2e;border:1px solid #283653;border-radius:18px;padding:18px;box-shadow:0 16px 50px #0004}
+video{width:100%;max-height:510px;aspect-ratio:4/3;object-fit:cover;background:#050914;border-radius:12px;transform:scaleX(-1)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:10px;padding:12px 16px;background:#7568ff;color:white;font-weight:700;cursor:pointer}button.secondary{background:#273653}button:disabled{opacity:.45;cursor:not-allowed}
+.status{margin-top:14px;padding:14px;border-radius:12px;background:#1a2944;line-height:1.5}.result{font-size:25px;font-weight:800}.good{color:#48e0a1}.warn{color:#ffc66d}.bad{color:#ff7777}
+.steps{display:grid;gap:10px}.step{padding:13px;border:1px solid #2a3854;border-radius:12px}.step b{display:block;margin-bottom:5px}.metric{font-size:28px;font-weight:800}.small{font-size:12px;color:#9eabc4;line-height:1.5}
+@media(max-width:760px){body{padding:14px}.layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body><main>
+<div class="top"><div><div class="pill">COMMIT &amp; CONQUER · HID HACKATHON</div><h1>Face Liveness + Identity Kiosk</h1><div class="muted">Active challenge prototype using browser landmarks and existing PCA verification.</div></div><div class="pill" id="apiState">API: checking…</div></div>
+<div class="layout">
+<section class="card"><video id="video" autoplay playsinline muted></video><canvas id="canvas" hidden></canvas>
+<div class="controls"><button id="start">Start camera</button><button id="begin" disabled>Begin authentication</button><button class="secondary" id="stop" disabled>Stop camera</button></div>
+<div class="status" aria-live="polite"><div class="muted">CHALLENGE</div><div class="result" id="challenge">Start camera to begin</div><div id="message" class="muted">The kiosk will ask for one random action, then verify identity.</div></div>
+</section>
+<aside class="card"><h2>Decision summary</h2><div class="steps">
+<div class="step"><b>1 · Liveness signal</b><span id="liveState" class="warn">Not checked</span><div class="small">Blink or head-turn challenge. This is an active liveness demonstration, not a certified PAD model.</div></div>
+<div class="step"><b>2 · Identity verification</b><span id="identityState" class="warn">Waiting</span><div class="small">Uses the existing /verify PCA recognition endpoint.</div></div>
+<div class="step"><b>3 · Authentication outcome</b><div id="decision" class="result">—</div></div>
+<div class="step"><b>Measured elapsed time</b><div class="metric" id="latency">—</div><div class="small">Includes challenge duration and identity API call; not a claim that challenge flow meets 2 seconds.</div></div>
+</div><p class="small">For the review: this prototype demonstrates the three-stage concept. Browser-side landmark checks can be manipulated and must not be represented as production-grade spoof protection. Add a server-side PAD model and validate physical attack samples before security claims.</p></aside>
+</div></main>
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const API="http://localhost:8000";
+const $=id=>document.getElementById(id);
+let stream=null,landmarker=null,running=false,challenge=null,passed=false,startedAt=0;
+async function health(){try{const r=await fetch(API+"/health");$("apiState").textContent=r.ok?"API: online":"API: unavailable"}catch{$("apiState").textContent="API: unavailable"}}
+health();
+async function loadLandmarker(){
+ const vision=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+ landmarker=await FaceLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"GPU"},runningMode:"VIDEO",numFaces:1});
+}
+$("start").onclick=async()=>{
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false});$("video").srcObject=stream;await $("video").play();$("start").disabled=true;$("stop").disabled=false;$("message").textContent="Loading face landmark model…";await loadLandmarker();$("begin").disabled=false;$("message").textContent="Camera and landmark model ready."}
+ catch(e){$("message").textContent="Camera/model setup failed: "+e.message}
+};
+$("stop").onclick=()=>{if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;running=false;$("video").srcObject=null;$("start").disabled=false;$("begin").disabled=true;$("stop").disabled=true;$("challenge").textContent="Camera stopped"};
+function eyeRatio(p,a,b,c,d,e,f){const dist=(i,j)=>Math.hypot(p[i].x-p[j].x,p[i].y-p[j].y);return (dist(b,f)+dist(c,e))/(2*dist(a,d))}
+function analyze(){
+ const v=$("video");if(!landmarker||v.readyState<2)return null;
+ const out=landmarker.detectForVideo(v,performance.now());if(!out.faceLandmarks?.length)return null;
+ const p=out.faceLandmarks[0],ear=(eyeRatio(p,33,160,158,133,153,144)+eyeRatio(p,362,385,387,263,373,380))/2;
+ const faceWidth=Math.max(.001,p[454].x-p[234].x),nose=(p[1].x-(p[234].x+p[454].x)/2)/faceWidth;
+ return {ear,nose};
+}
+$("begin").onclick=()=>{
+ challenge=["blink","turn-left","turn-right"][Math.floor(Math.random()*3)];passed=false;running=true;startedAt=performance.now();
+ $("begin").disabled=true;$("liveState").textContent="Challenge pending";$("liveState").className="warn";$("identityState").textContent="Waiting";$("decision").textContent="REQUEST VERIFICATION";$("decision").className="result warn";
+ $("challenge").textContent=challenge==="blink"?"Blink once":challenge==="turn-left"?"Turn your head left":"Turn your head right";
+ $("message").textContent="Complete the requested action while keeping your face visible.";monitor();
+};
+let blinkClosed=false,baseline=null;
+function monitor(){
+ if(!running)return;
+ const m=analyze();
+ if(m){
+  if(challenge==="blink"){if(m.ear<.19)blinkClosed=true;if(blinkClosed&&m.ear>.23)passed=true}
+  else {if(baseline===null)baseline=m.nose;const delta=m.nose-baseline;if(challenge==="turn-left"&&delta<-.12)passed=true;if(challenge==="turn-right"&&delta>.12)passed=true}
+  if(passed){running=false;complete();}
+ }else $("message").textContent="Position one face clearly in the camera.";
+ if(running)requestAnimationFrame(monitor);
+}
+async function complete(){
+ $("liveState").textContent="Challenge completed";$("liveState").className="good";$("message").textContent="Checking identity…";
+ const canvas=$("canvas"),v=$("video");canvas.width=v.videoWidth;canvas.height=v.videoHeight;canvas.getContext("2d").drawImage(v,0,0);
+ const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",.88));
+ const form=new FormData();form.append("image",blob,"kiosk-capture.jpg");
+ try{const r=await fetch(API+"/verify",{method:"POST",body:form});const data=await r.json();if(!r.ok)throw new Error(data.detail||"Verification failed");
+ $("identityState").textContent=data.match?"Identity matched: "+data.name:"No registered identity matched";$("identityState").className=data.match?"good":"bad";
+ $("decision").textContent=data.match?"ALLOW":"DENY";$("decision").className="result "+(data.match?"good":"bad");
+ }catch(e){$("identityState").textContent=e.message;$("identityState").className="bad";$("decision").textContent="REQUEST VERIFICATION";$("decision").className="result warn"}
+ $("latency").textContent=Math.round(performance.now()-startedAt)+" ms";$("begin").disabled=false;
+}
+</script></body></html>
