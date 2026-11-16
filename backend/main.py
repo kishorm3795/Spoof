@@ -17,6 +17,8 @@ Auto-generated Swagger UI available at http://localhost:8000/docs
 
 from __future__ import annotations
 
+import time
+from datetime import datetime
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -200,6 +202,148 @@ async def verify(
     result["face_detected"] = face_found   # extra info for frontend
 
     return result
+
+
+@app.post("/access/evaluate", tags=["kiosk"])
+async def evaluate_kiosk_access(
+    image: UploadFile = File(..., description="Face image from entry camera"),
+    role: str = Form(default="student", description="Claimed user role"),
+    zone: str = Form(default="main_gate", description="Target campus facility zone"),
+    offline: bool = Form(default=False, description="Simulate offline air-gapped kiosk mode"),
+    simulated_time: str = Form(default="", description="Optional simulated ISO datetime string for schedule testing"),
+):
+    """
+    Unified HID Kiosk Evaluation Route:
+    Fuses Biometric Verification + Passive Anti-Spoofing + Campus Schedule Authorization + Offline Fail-Secure.
+    Formula: BIOMETRIC RESULT + CAMPUS ACCESS SCHEDULE -> ALLOW / STEP-UP VERIFICATION / DENY
+    Guaranteed decision latency within 2.0 seconds.
+    """
+    t_start = time.perf_counter()
+
+    data = await image.read()
+    if len(data) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    dt_now = None
+    if simulated_time.strip():
+        try:
+            dt_now = datetime.fromisoformat(simulated_time.strip())
+        except ValueError:
+            dt_now = None
+
+    # 1. Passive Anti-Spoofing Assessment
+    liveness_res = liveness_engine.evaluate(data)
+
+    # 2. Identity Verification (PCA)
+    identity_res = {"match": False, "name": "Unknown", "distance": 1.0, "confidence": 0.0}
+    if pca.is_trained and store.count() > 0:
+        try:
+            x, face_found = preprocess_bytes_with_info(data)
+            omega = pca.project(x)
+            identity_res = store.query(omega)
+            identity_res["face_detected"] = face_found
+        except Exception as e:
+            identity_res["error"] = str(e)
+
+    matched_name = identity_res.get("name", "Unknown") if identity_res.get("match") else "Unknown"
+    is_identity_match = bool(identity_res.get("match", False))
+    cosine_dist = float(identity_res.get("distance", 1.0))
+
+    # Derive combined biometric outcome
+    if not liveness_res["is_live"] and not liveness_res["is_borderline"]:
+        biometric_outcome = "DENY"
+        bio_reason = f"Spoof presentation attack rejected ({liveness_res['spoof_type']})"
+    elif not is_identity_match:
+        biometric_outcome = "DENY"
+        bio_reason = "No enrolled identity match found in database"
+    elif liveness_res["is_borderline"]:
+        biometric_outcome = "REQUEST VERIFICATION"
+        bio_reason = "Borderline liveness confidence: active challenge or secondary verification required"
+    else:
+        biometric_outcome = "ALLOW"
+        bio_reason = f"Live person confirmed and matched to enrolled identity '{matched_name}'"
+
+    # 3. Handle Offline vs Online Mode
+    if offline:
+        offline_res = local_evaluator.evaluate_offline(
+            biometric_match=is_identity_match,
+            user_name=matched_name,
+            user_role=role,
+            zone=zone,
+            cosine_distance=cosine_dist,
+            liveness_score=liveness_res["liveness_score"],
+            spoof_type=liveness_res["spoof_type"],
+            dt=dt_now,
+        )
+        final_decision = offline_res["outcome"]
+        final_reason   = offline_res["reason"]
+        step_up_req    = offline_res["step_up_required"]
+        sched_status   = "offline_fail_secure"
+    else:
+        schedule_eval = schedule_engine.evaluate_access(
+            biometric_outcome=biometric_outcome,
+            user_name=matched_name,
+            user_role=role,
+            zone=zone,
+            dt=dt_now,
+        )
+        final_decision = schedule_eval.outcome.value
+        final_reason   = schedule_eval.reason
+        step_up_req    = schedule_eval.step_up_required
+        sched_status   = schedule_eval.schedule_status
+
+    elapsed_ms = (time.perf_counter() - t_start) * 1000.0
+    within_sla = elapsed_ms <= 2000.0
+
+    return {
+        "final_decision":   final_decision,
+        "reason":           final_reason,
+        "step_up_required": step_up_req,
+        "biometric": {
+            "outcome":    biometric_outcome,
+            "reason":     bio_reason,
+            "liveness":   liveness_res,
+            "identity":   identity_res,
+        },
+        "schedule": {
+            "zone":            zone,
+            "role":            role,
+            "schedule_status": sched_status,
+        },
+        "offline_mode":     offline,
+        "total_latency_ms": round(elapsed_ms, 2),
+        "within_sla":       within_sla,
+    }
+
+
+@app.get("/schedule/policies", tags=["schedule"])
+def get_schedule_policies():
+    """Returns all campus zone operating hours and security rules."""
+    out = {}
+    for zone, pol in schedule_engine.policies.items():
+        out[zone.value] = {
+            "name": pol.name,
+            "allowed_roles": [r.value for r in pol.allowed_roles],
+            "after_hours_grace_minutes": pol.after_hours_grace_minutes,
+            "is_high_security": pol.is_high_security,
+        }
+    return {"zones": out, "active_lockdowns": {k.value: v for k, v in schedule_engine.active_lockdowns.items()}}
+
+
+@app.post("/schedule/lockdown", tags=["schedule"])
+def toggle_zone_lockdown(
+    zone: str = Form(..., description="Campus zone to lock down"),
+    enabled: bool = Form(default=True, description="Enable or disable emergency curfew"),
+    reason: str = Form(default="Security protocol activation", description="Lockdown reason"),
+):
+    """Enforces or lifts an emergency lockdown on a facility."""
+    schedule_engine.set_lockdown(zone, enabled=enabled, reason=reason)
+    return {
+        "success": True,
+        "zone": zone,
+        "lockdown_active": enabled,
+        "reason": reason if enabled else "Normal operations restored",
+    }
 
 
 @app.get("/users", tags=["faces"])
