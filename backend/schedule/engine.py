@@ -37,7 +37,7 @@ class CampusScheduleEngine:
 
     def set_lockdown(self, zone: CampusZone | str, enabled: bool = True, reason: str = "Emergency curfew") -> None:
         """Enforces or releases an emergency perimeter lockdown for a facility."""
-        zone_enum = CampusZone(str(zone).lower())
+        zone_enum = zone if isinstance(zone, CampusZone) else CampusZone(str(zone).split(".")[-1].lower())
         if enabled:
             self.active_lockdowns[zone_enum] = reason
         else:
@@ -45,7 +45,7 @@ class CampusScheduleEngine:
 
     def is_lockdown_active(self, zone: CampusZone | str) -> tuple[bool, Optional[str]]:
         """Checks if an emergency facility lockdown is active."""
-        zone_enum = CampusZone(str(zone).lower())
+        zone_enum = zone if isinstance(zone, CampusZone) else CampusZone(str(zone).split(".")[-1].lower())
         if zone_enum in self.active_lockdowns:
             return True, self.active_lockdowns[zone_enum]
         return False, None
@@ -174,8 +174,17 @@ class CampusScheduleEngine:
         Returns:
             (DecisionOutcome, reason_message, schedule_status)
         """
-        role_enum = UserRole(str(role).lower())
-        zone_enum = CampusZone(str(zone).lower())
+        if isinstance(role, UserRole):
+            role_enum = role
+        else:
+            role_str = str(role).split(".")[-1].lower()
+            role_enum = UserRole(role_str)
+
+        if isinstance(zone, CampusZone):
+            zone_enum = zone
+        else:
+            zone_str = str(zone).split(".")[-1].lower()
+            zone_enum = CampusZone(zone_str)
 
         if zone_enum not in self.policies:
             return DecisionOutcome.DENY, f"Unknown campus zone: {zone}", "unknown_zone"
