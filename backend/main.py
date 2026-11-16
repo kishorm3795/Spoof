@@ -346,6 +346,62 @@ def toggle_zone_lockdown(
     }
 
 
+# ── Surprise Challenge 2: Offline Mode & Synchronization Endpoints ────────
+
+@app.post("/sync/offline-logs", tags=["sync"])
+async def ingest_offline_logs(batch_data: dict):
+    """
+    Central server ingestion route for offline kiosk decision logs.
+    Validates cryptographic HMAC signatures and reconciles events.
+    """
+    result = sync_manager.process_incoming_batch(batch_data)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Batch ingestion failed"))
+    return result
+
+
+@app.get("/sync/status", tags=["sync"])
+def get_sync_status():
+    """
+    Returns synchronization status, local unsynced count,
+    and cryptographic chain integrity report.
+    """
+    is_valid, integrity_msg = audit_log.verify_chain_integrity()
+    pending = audit_log.get_pending_sync_events()
+    central_records = sync_manager.read_central_records()
+
+    return {
+        "local_pending_sync_count": len(pending),
+        "local_total_events": len(audit_log.read_all_events()),
+        "central_reconciled_count": len(central_records),
+        "chain_integrity_valid": is_valid,
+        "chain_integrity_message": integrity_msg,
+    }
+
+
+@app.post("/sync/trigger-local", tags=["sync"])
+def trigger_local_kiosk_sync():
+    """
+    Executes end-to-end local kiosk synchronization:
+    Packages uncommitted offline logs, submits to central store, and updates local status.
+    """
+    batch = sync_manager.prepare_sync_batch("kiosk-local-01")
+    if batch["event_count"] == 0:
+        return {"success": True, "message": "No pending offline events to synchronize.", "synced_count": 0}
+
+    receipt = sync_manager.process_incoming_batch(batch)
+    if not receipt.get("success"):
+        raise HTTPException(status_code=500, detail=receipt.get("error", "Reconciliation failed"))
+
+    updated = sync_manager.complete_sync(receipt)
+    return {
+        "success": True,
+        "message": f"Successfully synchronized {updated} offline decision(s) with central server.",
+        "synced_count": updated,
+        "batch_id": batch["batch_id"],
+    }
+
+
 @app.get("/users", tags=["faces"])
 def list_users():
     return {"users": store.list_users(), "count": store.count()}
