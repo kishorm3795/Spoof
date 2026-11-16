@@ -272,16 +272,43 @@ async function sendEvaluationRequest(blob, t0) {
 }
 
 // ── Interactive Offline Mode Toggle ──
-toggleOfflineMode.onchange = () => {
+let previousOfflineState = false;
+toggleOfflineMode.onchange = async () => {
   const isOffline = toggleOfflineMode.value === "true";
   if (isOffline) {
     networkModeLabel.textContent = "Offline · Safe Fail-Secure";
     offlineStatePill.className = "status-pill offline";
+    verdictReason.textContent = "Offline air-gap mode active. Local fail-secure policies and audit chain enforced.";
   } else {
     networkModeLabel.textContent = "Online · Cloud Central";
     offlineStatePill.className = "status-pill online";
+    // If returning from offline mode, offer auto-reconciliation
+    if (previousOfflineState) {
+      const syncConfirm = confirm("Network connection restored! Synchronize queued offline access decisions with central server now?");
+      if (syncConfirm) {
+        $("btnSyncNow").click();
+      }
+    }
   }
+  previousOfflineState = isOffline;
 };
+
+// ── TOTP 30-Second Refresh Countdown Timer ──
+let totpInterval = null;
+function startTotpCountdown() {
+  if (totpInterval) clearInterval(totpInterval);
+  const updateCountdown = () => {
+    const epochSec = Math.floor(Date.now() / 1000);
+    const rem = 30 - (epochSec % 30);
+    const demoBtn = $("demoOtpCode");
+    if (demoBtn && demoBtn.textContent !== "Click to load") {
+      demoBtn.title = `Passcode refreshes in ${rem}s`;
+    }
+  };
+  updateCountdown();
+  totpInterval = setInterval(updateCountdown, 1000);
+}
+startTotpCountdown();
 
 // ── Interactive Reconnection Sync ──
 $("btnSyncNow").onclick = async () => {
