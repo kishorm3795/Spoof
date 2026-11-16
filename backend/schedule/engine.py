@@ -183,8 +183,11 @@ class CampusScheduleEngine:
         if isinstance(zone, CampusZone):
             zone_enum = zone
         else:
-            zone_str = str(zone).split(".")[-1].lower()
-            zone_enum = CampusZone(zone_str)
+            zone_clean = str(zone).split(".")[-1].lower()
+            if zone_clean in ["server_room", "server_room_high_security"]:
+                zone_enum = CampusZone.SERVER_ROOM
+            else:
+                zone_enum = CampusZone(zone_clean)
 
         if zone_enum not in self.policies:
             return DecisionOutcome.DENY, f"Unknown campus zone: {zone}", "unknown_zone"

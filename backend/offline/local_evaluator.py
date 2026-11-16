@@ -64,8 +64,8 @@ class LocalSafeEvaluator:
                 event_record (dict): Minimal audit record appended to disk
         """
         now = dt or datetime.now()
-        zone_str = str(zone).split(".")[-1].lower()
-        role_str = str(user_role).split(".")[-1].lower()
+        zone_str = zone.value if isinstance(zone, CampusZone) else str(zone).lower()
+        role_str = user_role.value if isinstance(user_role, UserRole) else str(user_role).lower()
 
         # 1. Fail-Secure Rule: High-security zones lock down in offline mode
         if zone_str == CampusZone.SERVER_ROOM.value:
