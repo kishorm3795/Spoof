@@ -425,7 +425,40 @@ function generateSyntheticAttackBlob(type) {
 
 async function injectAttack(type) {
   const t0 = performance.now();
+  latencyTimer.textContent = "Analyzing Attack Presentation...";
+
+  // Visual feedback on HUD
+  const attackTitles = {
+    photo: "ATTACK PRESENTATION: PRINTED PHOTO",
+    screen: "ATTACK PRESENTATION: SCREEN REPLAY",
+    video: "ATTACK PRESENTATION: VIDEO REPLAY (MOIRE)",
+    mask: "ATTACK PRESENTATION: 3D / PRINTED MASK",
+    genuine: "PRESENTATION: GENUINE LIVE SUBJECT",
+  };
+  verdictTitle.textContent = "INSPECTING";
+  verdictReason.textContent = attackTitles[type] || "Evaluating physical presentation attack...";
+
   const blob = await generateSyntheticAttackBlob(type);
+
+  // Render to canvas so user sees the attack in the UI
+  const imgUrl = URL.createObjectURL(blob);
+  const tempImg = new Image();
+  tempImg.onload = () => {
+    canvas.hidden = false;
+    canvas.width = 640;
+    canvas.height = 480;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(tempImg, 0, 0, 640, 480);
+    // Add watermark
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(0, 430, 640, 50);
+    ctx.fillStyle = type === "genuine" ? "#10b981" : "#ef4444";
+    ctx.font = "bold 16px Inter, sans-serif";
+    ctx.fillText(attackTitles[type] || "ATTACK", 20, 460);
+    URL.revokeObjectURL(imgUrl);
+  };
+  tempImg.src = imgUrl;
+
   await sendEvaluationRequest(blob, t0);
 }
 
