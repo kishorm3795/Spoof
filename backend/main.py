@@ -26,11 +26,19 @@ from image_utils import preprocess_bytes, preprocess_bytes_with_info
 from pca_engine import PCAEngine
 from chroma_store import ChromaStore
 
+from liveness.engine import LivenessEngine
+from schedule.engine import CampusScheduleEngine
+from schedule.models import UserRole, CampusZone, DecisionOutcome
+from offline.audit_log import OfflineAuditLog
+from offline.local_evaluator import LocalSafeEvaluator
+from offline.totp_fallback import TOTPFallback
+from offline.sync_manager import SyncManager
+
 # ── App setup ────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Spectral Face Recognition API",
-    description="Eigenface-based face recognition using PCA + NumPy vector store.",
-    version="1.0.0",
+    description="Eigenface-based face recognition with passive anti-spoofing and campus schedule authorization.",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -41,8 +49,14 @@ app.add_middleware(
 )
 
 # ── Singletons ───────────────────────────────────────────────────────────
-pca   = PCAEngine(k=K)
-store = ChromaStore()
+pca              = PCAEngine(k=K)
+store            = ChromaStore()
+liveness_engine  = LivenessEngine()
+schedule_engine  = CampusScheduleEngine()
+audit_log        = OfflineAuditLog()
+local_evaluator  = LocalSafeEvaluator(audit_log=audit_log, schedule_engine=schedule_engine)
+totp_fallback    = TOTPFallback()
+sync_manager     = SyncManager(audit_log=audit_log)
 
 # ── Startup ──────────────────────────────────────────────────────────────
 @app.on_event("startup")
@@ -87,10 +101,29 @@ def _retrain_and_upsert() -> int:
 @app.get("/health", tags=["system"])
 def health():
     return {
-        "status":      "ok",
-        "model_ready": pca.is_trained,
-        "users":       store.count(),
+        "status":        "ok",
+        "model_ready":   pca.is_trained,
+        "users":         store.count(),
+        "anti_spoofing": True,
+        "schedule":      True,
+        "offline_ready": True,
     }
+
+
+@app.post("/liveness/inspect", tags=["liveness"])
+async def inspect_liveness(
+    image: UploadFile = File(..., description="Face image for presentation attack inspection"),
+):
+    """
+    Sub-2-second passive anti-spoofing inspection:
+    Evaluates printed photos, screen replays, moire patterns, and 3D masks.
+    """
+    data = await image.read()
+    if len(data) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+    result = liveness_engine.evaluate(data)
+    return result
 
 
 @app.post("/register", tags=["faces"])
