@@ -28,6 +28,27 @@ class CampusScheduleEngine:
 
     def __init__(self):
         self.policies: dict[CampusZone, ZonePolicy] = self._init_default_policies()
+        self.holidays: set[str] = set()  # format: 'YYYY-MM-DD'
+        self.active_lockdowns: dict[CampusZone, str] = {}  # zone -> reason
+
+    def add_holiday(self, date_str: str) -> None:
+        """Registers a campus holiday in 'YYYY-MM-DD' format."""
+        self.holidays.add(date_str)
+
+    def set_lockdown(self, zone: CampusZone | str, enabled: bool = True, reason: str = "Emergency curfew") -> None:
+        """Enforces or releases an emergency perimeter lockdown for a facility."""
+        zone_enum = CampusZone(str(zone).lower())
+        if enabled:
+            self.active_lockdowns[zone_enum] = reason
+        else:
+            self.active_lockdowns.pop(zone_enum, None)
+
+    def is_lockdown_active(self, zone: CampusZone | str) -> tuple[bool, Optional[str]]:
+        """Checks if an emergency facility lockdown is active."""
+        zone_enum = CampusZone(str(zone).lower())
+        if zone_enum in self.active_lockdowns:
+            return True, self.active_lockdowns[zone_enum]
+        return False, None
 
     def _init_default_policies(self) -> dict[CampusZone, ZonePolicy]:
         """Configures operational access windows across campus facilities."""
@@ -160,6 +181,27 @@ class CampusScheduleEngine:
             return DecisionOutcome.DENY, f"Unknown campus zone: {zone}", "unknown_zone"
 
         policy = self.policies[zone_enum]
+
+        now = dt or datetime.now()
+        date_key = now.strftime("%Y-%m-%d")
+
+        # Emergency Lockdown Check
+        is_locked, lock_reason = self.is_lockdown_active(zone_enum)
+        if is_locked and role_enum != UserRole.SECURITY:
+            return (
+                DecisionOutcome.DENY,
+                f"Facility {policy.name} is under emergency lockdown: {lock_reason}",
+                "emergency_lockdown",
+            )
+
+        # Campus Holiday Check (academic facilities closed except security)
+        if date_key in self.holidays and zone_enum not in [CampusZone.MAIN_GATE, CampusZone.DORMITORY]:
+            if role_enum not in [UserRole.SECURITY, UserRole.STAFF]:
+                return (
+                    DecisionOutcome.DENY,
+                    f"Campus holiday observed ({date_key}). Academic access suspended.",
+                    "campus_holiday_closed",
+                )
 
         # Security personnel always have bypass privileges across standard campus facilities
         if role_enum == UserRole.SECURITY:
