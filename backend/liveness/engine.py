@@ -92,14 +92,16 @@ class LivenessEngine:
 
         # Collect anomalies and classify spoof type
         anomalies = []
-        if freq_res["is_anomaly"]:
-            anomalies.append(("printed_photo", freq_res["score"], freq_res["indicators"]))
         if glare_res["is_anomaly"]:
-            anomalies.append(("screen_replay", glare_res["score"], glare_res["indicators"]))
+            # Screen glare and backlight anomalies are unique hardware signatures
+            anomalies.append(("screen_replay", glare_res["score"] - 0.12, glare_res["indicators"]))
         if moire_res["is_anomaly"]:
-            anomalies.append(("screen_replay", moire_res["score"], moire_res["indicators"]))
+            # Display matrix aliasing is specific to digital screens
+            anomalies.append(("screen_replay", moire_res["score"] - 0.10, moire_res["indicators"]))
         if depth_res["is_anomaly"]:
             anomalies.append(("mask", depth_res["score"], depth_res["indicators"]))
+        if freq_res["is_anomaly"]:
+            anomalies.append(("printed_photo", freq_res["score"], freq_res["indicators"]))
 
         reasons = []
         for _, _, inds in anomalies:

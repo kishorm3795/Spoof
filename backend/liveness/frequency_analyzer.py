@@ -4,7 +4,7 @@ backend/liveness/frequency_analyzer.py
 Frequency-domain texture and spatial energy analyzer for passive anti-spoofing.
 Detects printed paper photographs and texture-smoothed spoofs via:
 1. 2D Fast Fourier Transform (FFT) radial power distribution.
-2. High-to-low spatial frequency energy ratio.
+2. High-to-low spatial frequency energy density ratio.
 3. Laplacian micro-texture variance and blur-boundary metrics.
 """
 
@@ -32,7 +32,7 @@ class FrequencyAnalyzer:
         Returns:
             dict containing:
                 score (float 0.0-1.0): 1.0 = genuine skin texture, 0.0 = printed paper artifact
-                high_low_ratio (float): Ratio of high to low frequency energy
+                high_low_ratio (float): Ratio of high to low frequency energy density
                 laplacian_var (float): Texture sharpness metric
                 is_anomaly (bool): True if photo print / blur anomaly detected
                 indicators (list[str]): Diagnostic findings
@@ -41,7 +41,6 @@ class FrequencyAnalyzer:
             gray = np.array(image.convert("L"), dtype=np.float32)
         else:
             if image.ndim == 3:
-                # RGB to Gray using standard luminance weights
                 gray = (0.2989 * image[:, :, 0] + 0.5870 * image[:, :, 1] + 0.1140 * image[:, :, 2]).astype(np.float32)
             else:
                 gray = image.astype(np.float32)
@@ -71,14 +70,12 @@ class FrequencyAnalyzer:
         low_mask = dist_from_center <= r_low
         high_mask = (dist_from_center > r_low) & (dist_from_center <= r_high)
 
-        low_energy = float(np.sum(magnitude[low_mask]))
-        high_energy = float(np.sum(magnitude[high_mask]))
+        mean_low = float(np.mean(magnitude[low_mask])) if np.any(low_mask) else 1.0
+        mean_high = float(np.mean(magnitude[high_mask])) if np.any(high_mask) else 0.0
 
-        high_low_ratio = high_energy / (low_energy + 1e-6)
+        high_low_ratio = mean_high / (mean_low + 1e-6)
 
         # 2. Discrete Laplacian variance for micro-texture gradient
-        kernel = np.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]], dtype=np.float32)
-        # 2D correlation via frequency domain or simple spatial convolution
         pad_gray = np.pad(gray, 1, mode="reflect")
         laplacian = (
             pad_gray[:-2, 1:-1]
@@ -93,27 +90,26 @@ class FrequencyAnalyzer:
         indicators = []
         is_anomaly = False
 
-        # Live human skin typically has balanced high-low ratio (0.07 to 0.35)
-        # Printed photos often suffer from high-frequency attenuation (< 0.05) or paper noise spikes (> 0.45)
+        # Live human skin typically has balanced high-low energy density ratio (0.05 to 0.40)
+        # Printed photos suffer from high-frequency attenuation (< 0.04) or print blur
         if high_low_ratio < self.min_ratio:
             is_anomaly = True
-            indicators.append(f"Low high-frequency energy ({high_low_ratio:.4f} < {self.min_ratio:.4f}) indicates printed photo or blur")
-            score_ratio = max(0.1, high_low_ratio / self.min_ratio * 0.5)
-        elif high_low_ratio > 0.48:
-            is_anomaly = True
-            indicators.append(f"Abnormally high spatial frequency ({high_low_ratio:.4f}) indicates paper halftone/dot-matrix pattern")
-            score_ratio = 0.35
+            indicators.append(f"Low high-frequency energy density ({high_low_ratio:.4f} < {self.min_ratio:.4f}) indicates printed photo or blur")
+            score_ratio = max(0.08, high_low_ratio / self.min_ratio * 0.4)
         else:
-            score_ratio = min(1.0, 0.6 + (high_low_ratio - self.min_ratio) * 1.5)
+            score_ratio = min(1.0, 0.6 + (high_low_ratio - self.min_ratio) * 1.8)
 
-        # Micro-texture sharpness: < 40 indicates washed-out printed paper / over-smoothed spoof
-        if lap_var < 45.0:
+        # Micro-texture sharpness: < 35 indicates washed-out printed paper / over-smoothed spoof
+        if lap_var < 35.0:
+            is_anomaly = True
             indicators.append(f"Low micro-texture variance ({lap_var:.1f})")
-            score_texture = max(0.15, lap_var / 45.0 * 0.5)
+            score_texture = max(0.1, lap_var / 35.0 * 0.4)
         else:
-            score_texture = min(1.0, 0.5 + (lap_var - 45.0) / 200.0)
+            score_texture = min(1.0, 0.5 + (lap_var - 35.0) / 300.0)
 
         final_score = float(np.clip(0.6 * score_ratio + 0.4 * score_texture, 0.05, 0.98))
+        if is_anomaly:
+            final_score = min(final_score, 0.45)
 
         return {
             "score": round(final_score, 4),
