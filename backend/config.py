@@ -33,8 +33,8 @@ LIVENESS_BORDERLINE_MIN       = 0.45  # 0.45 - 0.69 triggers REQUEST VERIFICATIO
 
 # Sub-detector tuning constants
 FREQ_HIGH_LOW_RATIO_MIN  = 0.065 # Living skin maintains high-frequency texture gradient
-GLARE_SPECULAR_MAX_RATIO = 0.080 # Screen replays exhibit excessive specular highlight areas
-MOIRE_BANDING_PEAK_MAX   = 0.120 # Digital displays generate periodic 2D spatial frequency spikes
+GLARE_SPECULAR_MAX_RATIO = 0.045 # Screen replays exhibit excessive specular highlight areas
+MOIRE_BANDING_PEAK_MAX   = 3.800 # Digital displays generate periodic 2D spatial frequency spikes
 DEPTH_DISPARITY_MIN      = 0.040 # 3D natural faces exhibit surface normal gradient divergence
 
 # Weights for multi-spoof ensemble

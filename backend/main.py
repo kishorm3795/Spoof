@@ -470,6 +470,20 @@ def verify_step_up(
     }
 
 
+# ── Benchmark Evaluation Endpoint ─────────────────────────────────────────
+
+@app.get("/benchmark/run", tags=["benchmark"])
+def trigger_performance_benchmark():
+    """
+    Executes automated performance and security benchmark across 150 test presentations:
+    Measures detection rates for printed photo, screen replay, video replay, and 3D mask,
+    and returns latency percentiles (p50, p95 <= 2s), APCER, and BPCER.
+    """
+    from benchmark import run_benchmark
+    report = run_benchmark()
+    return report
+
+
 @app.get("/users", tags=["faces"])
 def list_users():
     return {"users": store.list_users(), "count": store.count()}

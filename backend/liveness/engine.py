@@ -88,6 +88,18 @@ class LivenessEngine:
             + WEIGHT_MOIRE * moire_res["score"]
             + WEIGHT_DEPTH * depth_res["score"]
         )
+
+        # Presentation Attack Veto: If any detector flags a physical anomaly,
+        # prevent high scores from other detectors from masking the spoof.
+        if moire_res["is_anomaly"] or glare_res["is_anomaly"] or freq_res["is_anomaly"] or depth_res["is_anomaly"]:
+            agg_score = min(agg_score, 0.62)
+
+        # Severe artifact cap: only cap when an anomaly is confirmed
+        if (moire_res["is_anomaly"] and moire_res["peak_ratio"] > 8.0) or \
+           (glare_res["is_anomaly"] and glare_res["specular_ratio"] > 0.08) or \
+           (depth_res["is_anomaly"] and depth_res["flat_ratio"] > 0.90):
+            agg_score = min(agg_score, 0.38)
+
         agg_score = float(np.clip(agg_score, 0.01, 0.99))
 
         # Collect anomalies and classify spoof type
@@ -96,8 +108,9 @@ class LivenessEngine:
             # Screen glare and backlight anomalies are unique hardware signatures
             anomalies.append(("screen_replay", glare_res["score"] - 0.12, glare_res["indicators"]))
         if moire_res["is_anomaly"]:
-            # Display matrix aliasing is specific to digital screens
-            anomalies.append(("screen_replay", moire_res["score"] - 0.10, moire_res["indicators"]))
+            # Display matrix aliasing / Moire pattern
+            pred_type = "video_replay" if moire_res["peak_ratio"] > 2.0 else "screen_replay"
+            anomalies.append((pred_type, moire_res["score"] - 0.15, moire_res["indicators"]))
         if depth_res["is_anomaly"]:
             anomalies.append(("mask", depth_res["score"], depth_res["indicators"]))
         if freq_res["is_anomaly"]:
