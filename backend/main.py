@@ -402,6 +402,74 @@ def trigger_local_kiosk_sync():
     }
 
 
+# ── Step-Up Verification Workflow ─────────────────────────────────────────
+
+@app.get("/access/step-up/current-otp", tags=["step-up"])
+def get_current_demo_otp():
+    """
+    Returns the current active RFC 6238 TOTP token for testing/demo purposes.
+    Enables hackathon reviewers to test step-up verification without an authenticator app.
+    """
+    token = totp_fallback.generate_token()
+    return {
+        "current_token": token,
+        "validity_seconds": 30,
+        "emergency_master_pin": TOTPFallback.MASTER_OVERRIDE_PIN,
+    }
+
+
+@app.post("/access/step-up/verify", tags=["step-up"])
+def verify_step_up(
+    verification_type: str = Form(default="otp", description="'otp', 'supervisor_pin', or 'active_action'"),
+    code: str = Form(default="", description="6-digit OTP code or emergency override PIN"),
+    user_name: str = Form(default="Authorized User", description="Target user name"),
+    zone: str = Form(default="main_gate", description="Campus facility zone"),
+    action_completed: bool = Form(default=False, description="Set True if active challenge (e.g. blink/turn) was performed"),
+    offline: bool = Form(default=False, description="Whether kiosk is in offline mode"),
+):
+    """
+    Handles step-up verification when initial confidence is borderline,
+    facility is in after-hours grace period, or kiosk is operating offline.
+    """
+    t_start = time.perf_counter()
+    v_type = verification_type.strip().lower()
+
+    if v_type in ["otp", "supervisor_pin"]:
+        if not code.strip():
+            raise HTTPException(status_code=400, detail="Verification code is required.")
+        is_valid, reason = totp_fallback.verify_fallback(code.strip(), user_name, zone)
+    elif v_type == "active_action":
+        if action_completed:
+            is_valid = True
+            reason = "Active physical liveness challenge completed successfully"
+        else:
+            is_valid = False
+            reason = "Active challenge incomplete or unverified"
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported verification_type: '{verification_type}'")
+
+    outcome = "ALLOW" if is_valid else "DENY"
+
+    # Log step-up resolution
+    if offline:
+        audit_log.append_event(
+            user_name=user_name,
+            zone=zone,
+            decision=outcome,
+            reason=f"Step-up ({v_type}): {reason}",
+        )
+
+    elapsed_ms = (time.perf_counter() - t_start) * 1000.0
+
+    return {
+        "success":           is_valid,
+        "final_decision":    outcome,
+        "verification_type": v_type,
+        "reason":            reason,
+        "latency_ms":        round(elapsed_ms, 2),
+    }
+
+
 @app.get("/users", tags=["faces"])
 def list_users():
     return {"users": store.list_users(), "count": store.count()}
