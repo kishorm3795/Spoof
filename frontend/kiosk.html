@@ -1,86 +1,247 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Commit & Conquer | Liveness Kiosk</title>
-<style>
-:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#0b1020;color:#eef2ff}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0,#1d2b52,#0b1020 55%);padding:28px}
-main{max-width:1050px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-h1{font-size:clamp(25px,4vw,38px);margin:8px 0}.muted{color:#a8b3cc}.pill{border:1px solid #34415e;border-radius:99px;padding:7px 12px;font-size:12px}
-.layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(270px,.8fr);gap:18px;margin-top:22px}
-.card{background:#111a2e;border:1px solid #283653;border-radius:18px;padding:18px;box-shadow:0 16px 50px #0004}
-video{width:100%;max-height:510px;aspect-ratio:4/3;object-fit:cover;background:#050914;border-radius:12px;transform:scaleX(-1)}
-.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:10px;padding:12px 16px;background:#7568ff;color:white;font-weight:700;cursor:pointer}button.secondary{background:#273653}button:disabled{opacity:.45;cursor:not-allowed}
-.status{margin-top:14px;padding:14px;border-radius:12px;background:#1a2944;line-height:1.5}.result{font-size:25px;font-weight:800}.good{color:#48e0a1}.warn{color:#ffc66d}.bad{color:#ff7777}
-.steps{display:grid;gap:10px}.step{padding:13px;border:1px solid #2a3854;border-radius:12px}.step b{display:block;margin-bottom:5px}.metric{font-size:28px;font-weight:800}.small{font-size:12px;color:#9eabc4;line-height:1.5}
-@media(max-width:760px){body{padding:14px}.layout{grid-template-columns:1fr}}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HID Entry Kiosk | Face Liveness & Campus Access</title>
+  <link rel="stylesheet" href="kiosk.css" />
 </head>
-<body><main>
-<div class="top"><div><div class="pill">COMMIT &amp; CONQUER · HID HACKATHON</div><h1>Face Liveness + Identity Kiosk</h1><div class="muted">Active challenge prototype using browser landmarks and existing PCA verification.</div></div><div class="pill" id="apiState">API: checking…</div></div>
-<div class="layout">
-<section class="card"><video id="video" autoplay playsinline muted></video><canvas id="canvas" hidden></canvas>
-<div class="controls"><button id="start">Start camera</button><button id="begin" disabled>Begin authentication</button><button class="secondary" id="stop" disabled>Stop camera</button></div>
-<div class="status" aria-live="polite"><div class="muted">CHALLENGE</div><div class="result" id="challenge">Start camera to begin</div><div id="message" class="muted">The kiosk will ask for one random action, then verify identity.</div></div>
-</section>
-<aside class="card"><h2>Decision summary</h2><div class="steps">
-<div class="step"><b>1 · Liveness signal</b><span id="liveState" class="warn">Not checked</span><div class="small">Blink or head-turn challenge. This is an active liveness demonstration, not a certified PAD model.</div></div>
-<div class="step"><b>2 · Identity verification</b><span id="identityState" class="warn">Waiting</span><div class="small">Uses the existing /verify PCA recognition endpoint.</div></div>
-<div class="step"><b>3 · Authentication outcome</b><div id="decision" class="result">—</div></div>
-<div class="step"><b>Measured elapsed time</b><div class="metric" id="latency">—</div><div class="small">Includes challenge duration and identity API call; not a claim that challenge flow meets 2 seconds.</div></div>
-</div><p class="small">For the review: this prototype demonstrates the three-stage concept. Browser-side landmark checks can be manipulated and must not be represented as production-grade spoof protection. Add a server-side PAD model and validate physical attack samples before security claims.</p></aside>
-</div></main>
-<script type="module">
-import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
-const API="http://localhost:8000";
-const $=id=>document.getElementById(id);
-let stream=null,landmarker=null,running=false,challenge=null,passed=false,startedAt=0;
-async function health(){try{const r=await fetch(API+"/health");$("apiState").textContent=r.ok?"API: online":"API: unavailable"}catch{$("apiState").textContent="API: unavailable"}}
-health();
-async function loadLandmarker(){
- const vision=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
- landmarker=await FaceLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"GPU"},runningMode:"VIDEO",numFaces:1});
-}
-$("start").onclick=async()=>{
- try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false});$("video").srcObject=stream;await $("video").play();$("start").disabled=true;$("stop").disabled=false;$("message").textContent="Loading face landmark model…";await loadLandmarker();$("begin").disabled=false;$("message").textContent="Camera and landmark model ready."}
- catch(e){$("message").textContent="Camera/model setup failed: "+e.message}
-};
-$("stop").onclick=()=>{if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;running=false;$("video").srcObject=null;$("start").disabled=false;$("begin").disabled=true;$("stop").disabled=true;$("challenge").textContent="Camera stopped"};
-function eyeRatio(p,a,b,c,d,e,f){const dist=(i,j)=>Math.hypot(p[i].x-p[j].x,p[i].y-p[j].y);return (dist(b,f)+dist(c,e))/(2*dist(a,d))}
-function analyze(){
- const v=$("video");if(!landmarker||v.readyState<2)return null;
- const out=landmarker.detectForVideo(v,performance.now());if(!out.faceLandmarks?.length)return null;
- const p=out.faceLandmarks[0],ear=(eyeRatio(p,33,160,158,133,153,144)+eyeRatio(p,362,385,387,263,373,380))/2;
- const faceWidth=Math.max(.001,p[454].x-p[234].x),nose=(p[1].x-(p[234].x+p[454].x)/2)/faceWidth;
- return {ear,nose};
-}
-$("begin").onclick=()=>{
- challenge=["blink","turn-left","turn-right"][Math.floor(Math.random()*3)];passed=false;running=true;startedAt=performance.now();
- $("begin").disabled=true;$("liveState").textContent="Challenge pending";$("liveState").className="warn";$("identityState").textContent="Waiting";$("decision").textContent="REQUEST VERIFICATION";$("decision").className="result warn";
- $("challenge").textContent=challenge==="blink"?"Blink once":challenge==="turn-left"?"Turn your head left":"Turn your head right";
- $("message").textContent="Complete the requested action while keeping your face visible.";monitor();
-};
-let blinkClosed=false,baseline=null;
-function monitor(){
- if(!running)return;
- const m=analyze();
- if(m){
-  if(challenge==="blink"){if(m.ear<.19)blinkClosed=true;if(blinkClosed&&m.ear>.23)passed=true}
-  else {if(baseline===null)baseline=m.nose;const delta=m.nose-baseline;if(challenge==="turn-left"&&delta<-.12)passed=true;if(challenge==="turn-right"&&delta>.12)passed=true}
-  if(passed){running=false;complete();}
- }else $("message").textContent="Position one face clearly in the camera.";
- if(running)requestAnimationFrame(monitor);
-}
-async function complete(){
- $("liveState").textContent="Challenge completed";$("liveState").className="good";$("message").textContent="Checking identity…";
- const canvas=$("canvas"),v=$("video");canvas.width=v.videoWidth;canvas.height=v.videoHeight;canvas.getContext("2d").drawImage(v,0,0);
- const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",.88));
- const form=new FormData();form.append("image",blob,"kiosk-capture.jpg");
- try{const r=await fetch(API+"/verify",{method:"POST",body:form});const data=await r.json();if(!r.ok)throw new Error(data.detail||"Verification failed");
- $("identityState").textContent=data.match?"Identity matched: "+data.name:"No registered identity matched";$("identityState").className=data.match?"good":"bad";
- $("decision").textContent=data.match?"ALLOW":"DENY";$("decision").className="result "+(data.match?"good":"bad");
- }catch(e){$("identityState").textContent=e.message;$("identityState").className="bad";$("decision").textContent="REQUEST VERIFICATION";$("decision").className="result warn"}
- $("latency").textContent=Math.round(performance.now()-startedAt)+" ms";$("begin").disabled=false;
-}
-</script></body></html>
+<body>
+  <div class="app-container">
+    <!-- ── Top Header ── -->
+    <header>
+      <div class="brand-wrapper">
+        <div class="hid-logo-badge">HID</div>
+        <div class="title-group">
+          <h1>Smart Campus Entry Kiosk</h1>
+          <p>Face Liveness Anti-Spoofing · Campus Access Schedule · Safe Offline Mode</p>
+        </div>
+      </div>
+      <div class="header-status-group">
+        <div class="status-pill" id="offlineStatePill">
+          <span class="pulse-dot"></span>
+          <span id="networkModeLabel">Online · Cloud Central</span>
+        </div>
+        <div class="status-pill" id="apiStatePill">
+          <span class="pulse-dot"></span>
+          <span id="apiStatusText">API: checking…</span>
+        </div>
+        <button class="btn btn-secondary" id="btnRunBenchmark" style="padding: 6px 14px; font-size: 12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          Run Benchmark
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Main Kiosk Interface ── -->
+    <main class="kiosk-grid">
+      <!-- Left: HUD Camera Viewport -->
+      <section class="glass-card viewport-card">
+        <div class="camera-container">
+          <video id="webcam" autoplay playsinline muted></video>
+          <canvas id="snapshotCanvas" hidden></canvas>
+
+          <!-- HUD Face Targeting Reticle -->
+          <div class="hud-reticle" id="hudReticle">
+            <span class="reticle-corner-tr"></span>
+            <span class="reticle-corner-bl"></span>
+          </div>
+
+          <!-- Bottom Telemetry HUD Bar -->
+          <div class="hud-telemetry-strip">
+            <div class="hud-timer">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>DECISION LATENCY: </span>
+              <span id="latencyTimer" style="color: var(--accent-cyan); font-weight: 800;">— ms</span>
+            </div>
+            <div id="slaComplianceBadge" class="sla-badge">SLA &le; 2.0s</div>
+          </div>
+        </div>
+
+        <!-- Camera & Authentication Actions -->
+        <div class="kiosk-actions">
+          <button class="btn btn-primary" id="btnStartCamera">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Start Camera
+          </button>
+          <button class="btn btn-primary" id="btnEvaluateAccess" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Verify & Authenticate
+          </button>
+          <button class="btn btn-secondary" id="btnStopCamera" disabled>Stop Camera</button>
+        </div>
+      </section>
+
+      <!-- Right: Decision Telemetry & Access Summary -->
+      <aside class="glass-card telemetry-card">
+        <!-- Big Access Decision Verdict Banner -->
+        <div class="verdict-banner" id="verdictBanner">
+          <div class="verdict-header">Actuation Decision</div>
+          <div class="verdict-title" id="verdictTitle">READY</div>
+          <div class="verdict-reason" id="verdictReason">Position face inside reticle and click Verify to begin sub-2s inspection.</div>
+        </div>
+
+        <!-- Detailed Metrics List -->
+        <div class="telemetry-sections">
+          <!-- 1. Liveness & Spoof Status -->
+          <div class="telemetry-row">
+            <div class="metric-meta">
+              <span class="metric-label">Passive Liveness (Anti-Spoofing)</span>
+              <span class="metric-value" id="livenessStatusVal">Not Checked</span>
+            </div>
+            <span class="metric-tag" id="livenessScoreTag">—</span>
+          </div>
+
+          <!-- 2. Spoof Type Classification -->
+          <div class="telemetry-row">
+            <div class="metric-meta">
+              <span class="metric-label">Spoof Classification</span>
+              <span class="metric-value" id="spoofTypeVal">None Detected</span>
+            </div>
+            <span class="metric-tag" id="spoofTypeTag">—</span>
+          </div>
+
+          <!-- 3. Biometric Identity Recognition -->
+          <div class="telemetry-row">
+            <div class="metric-meta">
+              <span class="metric-label">Biometric Identity (PCA)</span>
+              <span class="metric-value" id="identityNameVal">Waiting</span>
+            </div>
+            <span class="metric-tag" id="identityDistTag">—</span>
+          </div>
+
+          <!-- 4. Campus Schedule Clearance -->
+          <div class="telemetry-row">
+            <div class="metric-meta">
+              <span class="metric-label">Campus Schedule Policy</span>
+              <span class="metric-value" id="scheduleStatusVal">Not Evaluated</span>
+            </div>
+            <span class="metric-tag" id="scheduleZoneTag">Main Gate</span>
+          </div>
+
+          <!-- 5. Offline Queue / Sync State -->
+          <div class="telemetry-row">
+            <div class="metric-meta">
+              <span class="metric-label">Offline Audit &amp; Sync</span>
+              <span class="metric-value" id="offlineBacklogVal">0 queued events</span>
+            </div>
+            <button class="btn btn-secondary" id="btnSyncNow" style="padding: 4px 10px; font-size: 11px;">
+              Sync Now
+            </button>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- ── Interactive Simulator Controls: Schedule & Offline ── -->
+    <section class="simulator-drawer">
+      <div class="drawer-header">
+        <h3>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Surprise Challenges Configuration Panel
+        </h3>
+        <span class="status-pill">Interactive Live Testing</span>
+      </div>
+
+      <div class="simulator-controls">
+        <!-- Zone Selector -->
+        <div class="control-group">
+          <label for="selectZone">Campus Facility Zone</label>
+          <select id="selectZone">
+            <option value="main_gate">Main Entrance (24/7 Gate)</option>
+            <option value="engineering_lab">Engineering Lab (08:00 - 20:00, Grace to 22:00)</option>
+            <option value="library">Academic Library (07:00 - 23:00)</option>
+            <option value="admin_office">Administrative Office (08:30 - 17:30 Mon-Fri)</option>
+            <option value="dormitory">Student Dormitories</option>
+            <option value="server_room_high_security">Datacenter / Server Room (High Security)</option>
+          </select>
+        </div>
+
+        <!-- Role Selector -->
+        <div class="control-group">
+          <label for="selectRole">Claimed User Role</label>
+          <select id="selectRole">
+            <option value="student">Student</option>
+            <option value="faculty">Faculty Member</option>
+            <option value="staff">Administrative / IT Staff</option>
+            <option value="visitor">Visitor</option>
+            <option value="contractor">Contractor</option>
+            <option value="security">Security Personnel (Universal Bypass)</option>
+          </select>
+        </div>
+
+        <!-- Simulated Time-of-Day -->
+        <div class="control-group">
+          <label for="simulatedTimeInput">Simulate Facility Time</label>
+          <input type="text" id="simulatedTimeInput" placeholder="YYYY-MM-DDTHH:MM:SS (e.g. 2026-11-17T21:15:00)" />
+        </div>
+
+        <!-- Offline Air-Gap Mode Toggle -->
+        <div class="control-group">
+          <label for="toggleOfflineMode">Network Connection Mode</label>
+          <select id="toggleOfflineMode">
+            <option value="false">Online (Connected to Central Cloud)</option>
+            <option value="true">Offline / Air-Gapped (Safe Local Fail-Secure)</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Interactive Spoof Attack Simulator Lab ── -->
+    <section class="simulator-drawer">
+      <div class="drawer-header">
+        <h3>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Spoof Attack Testing Lab (One-Click Presentation Attack Injection)
+        </h3>
+        <span style="font-size: 12px; color: var(--text-secondary);">Test all 4 presentation attacks without physical props</span>
+      </div>
+
+      <div class="attack-grid">
+        <button class="btn-attack" id="btnAttackPhoto">
+          Printed Photo Attack
+        </button>
+        <button class="btn-attack" id="btnAttackScreen">
+          Screen Replay Attack
+        </button>
+        <button class="btn-attack" id="btnAttackVideo">
+          Video Replay (Moire)
+        </button>
+        <button class="btn-attack" id="btnAttackMask">
+          3D / Paper Mask Attack
+        </button>
+        <button class="btn-attack btn-live-inject" id="btnInjectGenuine">
+          Genuine Live Subject
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── Step-Up Verification Modal (OTP / Fallback Challenge) ── -->
+  <div class="modal-backdrop" id="stepUpModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Secondary Verification Required</h2>
+        <p id="modalReasonText">Initial confidence borderline or after-hours schedule grace window.</p>
+      </div>
+
+      <div class="control-group">
+        <label>Enter 6-Digit Time-Based Passcode (TOTP) or Emergency PIN</label>
+        <input type="text" id="otpCodeInput" class="otp-input" maxlength="6" placeholder="000000" />
+      </div>
+
+      <div style="font-size: 11px; color: var(--text-dim); display: flex; justify-content: space-between;">
+        <span>Current Active Demo OTP: <b id="demoOtpCode" style="color: var(--accent-cyan); cursor: pointer;">Click to load</b></span>
+        <span>Emergency Master PIN: <b>994821</b></span>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <button class="btn btn-primary" id="btnSubmitOtp" style="flex: 1;">Submit Code</button>
+        <button class="btn btn-secondary" id="btnCancelModal">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="kiosk.js"></script>
+</body>
+</html>

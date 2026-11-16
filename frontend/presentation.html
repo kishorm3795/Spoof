@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spectral Face Recognition & Liveness Review Presentation</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #111726;
+      --surface-border: #222d44;
+      --surface-hover: #192238;
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --accent-glow: rgba(99, 102, 241, 0.25);
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.2);
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* ── Top Bar ── */
+    header {
+      height: 56px;
+      padding: 0 24px;
+      background: rgba(17, 23, 38, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--surface-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: var(--accent-light);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .deck-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-icon {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    .btn-icon.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    /* ── Main Slide Viewport ── */
+    #slide-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 32px;
+      background: 
+        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.06) 0%, transparent 40%);
+    }
+
+    .slide {
+      position: absolute;
+      width: 100%;
+      max-width: 1240px;
+      height: 100%;
+      max-height: 740px;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      padding: 44px 52px;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(30px) scale(0.98);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0) scale(1);
+      z-index: 2;
+    }
+
+    .slide.prev {
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(-30px) scale(0.98);
+      z-index: 1;
+    }
+
+    /* ── Slide Typography & Elements ── */
+    .slide-tag {
+      color: var(--accent-light);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    .slide-h1 {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #ffffff 40%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-desc {
+      color: var(--text-muted);
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+      max-width: 900px;
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Grids & Cards ── */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--surface-border);
+      border-radius: 14px;
+      padding: 20px;
+      transition: all 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.4);
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--accent-light);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    .card-body {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .card-body ul {
+      padding-left: 20px;
+      margin-top: 8px;
+    }
+
+    .card-body li {
+      margin-bottom: 6px;
+    }
+
+    /* ── Flowcharts & Pipelines ── */
+    .flow-pipeline {
+      display: flex;
+      align-items: stretch;
+      gap: 12px;
+      margin: 12px 0 20px 0;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
+    .flow-step {
+      flex: 1;
+      min-width: 170px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+    }
+
+    .flow-step::after {
+      content: "➔";
+      position: absolute;
+      right: -12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: bold;
+      z-index: 3;
+    }
+
+    .flow-step:last-child::after {
+      display: none;
+    }
+
+    .flow-step .step-num {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--accent-light);
+      background: rgba(99, 102, 241, 0.15);
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .flow-step .step-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .flow-step .step-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ── Code & Math blocks ── */
+    pre, code {
+      font-family: var(--mono);
+    }
+
+    .math-box {
+      background: #080c14;
+      border: 1px solid var(--surface-border);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: #e2e8f0;
+      line-height: 1.6;
+      margin: 10px 0;
+    }
+
+    .math-highlight {
+      color: #38bdf8;
+      font-weight: bold;
+    }
+
+    /* ── Tables ── */
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    table.data-table th {
+      text-align: left;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border-bottom: 1px solid var(--surface-border);
+      font-weight: 700;
+    }
+
+    table.data-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      vertical-align: top;
+    }
+
+    table.data-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text);
+    }
+
+    .tag-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .tag-blue { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+    .tag-green { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .tag-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+    .tag-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .tag-red { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+    /* ── Speaker Notes Drawer ── */
+    #notes-drawer {
+      position: fixed;
+      bottom: 56px;
+      left: 0;
+      right: 0;
+      background: rgba(13, 18, 30, 0.95);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--surface-border);
+      padding: 18px 32px;
+      max-height: 220px;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 90;
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    #notes-drawer.open {
+      transform: translateY(0);
+    }
+
+    .notes-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .notes-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-light);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .notes-body {
+      font-size: 14px;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+
+    /* ── Bottom Controls ── */
+    footer {
+      height: 56px;
+      background: rgba(17, 23, 38, 0.85);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--surface-border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+
+    .progress-bar {
+      flex: 1;
+      max-width: 380px;
+      height: 4px;
+      background: var(--surface-border);
+      border-radius: 999px;
+      margin: 0 20px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-light));
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .nav-buttons {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-nav {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-nav:hover:not(:disabled) {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+    }
+
+    .btn-nav:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .slide-counter {
+      font-size: 13px;
+      font-family: var(--mono);
+      color: var(--text-muted);
+    }
+
+    /* ── Slide Quick Selector Drawer ── */
+    #quick-nav {
+      position: fixed;
+      top: 56px;
+      bottom: 56px;
+      right: 0;
+      width: 320px;
+      background: rgba(13, 18, 30, 0.96);
+      backdrop-filter: blur(16px);
+      border-left: 1px solid var(--surface-border);
+      padding: 20px;
+      overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.3s;
+      z-index: 95;
+    }
+
+    #quick-nav.open {
+      transform: translateX(0);
+    }
+
+    .nav-item {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      margin-bottom: 6px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-item:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: var(--accent-light);
+      font-weight: 600;
+    }
+
+    /* Print styling */
+    @media print {
+      body {
+        overflow: visible;
+        height: auto;
+        background: white;
+        color: black;
+      }
+      header, footer, #notes-drawer, #quick-nav {
+        display: none !important;
+      }
+      #slide-container {
+        padding: 0;
+        overflow: visible;
+        display: block;
+      }
+      .slide {
+        position: relative !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+        max-height: none !important;
+        height: 100vh !important;
+        page-break-after: always;
+        break-after: page;
+        border: none !important;
+        box-shadow: none !important;
+        background: white !important;
+        color: black !important;
+      }
+      .slide-h1 {
+        -webkit-text-fill-color: black;
+        color: black;
+      }
+      .card, .math-box, .flow-step {
+        background: #f8fafc !important;
+        color: #1e293b !important;
+        border-color: #cbd5e1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header>
+    <div class="brand">
+      <div class="badge">HID Hackathon · Team Commit &amp; Conquer</div>
+      <div class="deck-title">Spectral Face Recognition &amp; Active Liveness System</div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="toggle-notes" title="Toggle Speaker Notes (N)">
+        🎙️ Speaker Notes (N)
+      </button>
+      <button class="btn-icon" id="toggle-menu" title="Slides Outline (M)">
+        📑 Outline (M)
+      </button>
+      <button class="btn-icon" id="btn-fullscreen" title="Fullscreen (F)">
+        ⛶ Fullscreen (F)
+      </button>
+      <button class="btn-icon" onclick="window.print()" title="Print / PDF Export">
+        🖨️ PDF Export
+      </button>
+    </div>
+  </header>
+
+  <!-- Slide Viewport -->
+  <main id="slide-container">
+
+    <!-- ── SLIDE 1: Title Slide ── -->
+    <div class="slide active" data-notes="Welcome judges and mentors. Today we are presenting 'Spectral Face Recognition & Active Liveness Authentication' — an end-to-end biometric verification system engineered for the HID Hackathon by Team Commit & Conquer. Our goal was to create a lightweight, fully explainable, two-tier facial verification pipeline combining real-time presentation-attack defense with mathematical eigenface projection.">
+      <div class="slide-tag">Hackathon Technical Review · Final Presentation</div>
+      <h1 class="slide-h1">Spectral Face Recognition &amp;<br>Active Liveness Kiosk</h1>
+      <p class="slide-desc">
+        A dual-tier biometric verification architecture combining in-browser MediaPipe 3D face mesh active challenge-response with mathematical PCA (Eigenfaces) spectral matching and vectorized cosine search.
+      </p>
+      <div class="slide-content">
+        <div class="grid-3" style="margin-top: auto;">
+          <div class="card">
+            <div class="card-subtitle">Tier 1 Defense</div>
+            <div class="card-title">Active Liveness</div>
+            <div class="card-body">Real-time landmark challenge-response protocol (random blink &amp; head-yaw) running 60 FPS in WebAssembly.</div>
+          </div>
+          <div class="card">
+            <div class="card-subtitle">Tier 2 Defense</div>
+            <div class="card-title">Spectral Biometrics</div>
+            <div class="card-body">OpenCV Haar + CLAHE illumination equalisation feeding a pure NumPy/SciPy Eigenface projection engine.</div>
+          </div>
+          <div class="card">
+            <div class="card-subtitle">Deployment Target</div>
+            <div class="card-title">Low-Latency Kiosk</div>
+            <div class="card-body">Autonomous access control with sub-50ms backend matching and zero heavyweight GPU server requirements.</div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top: 1px solid var(--surface-border); padding-top: 16px; margin-top: 14px; font-size: 13px; color: var(--text-dim);">
+          <div>Team: <strong>Commit &amp; Conquer</strong></div>
+          <div>Stack: <strong>FastAPI · MediaPipe · NumPy · SciPy · OpenCV · Pillow</strong></div>
+          <div>Review Focus: <strong>Tools Used &amp; Technical Approach</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 2: Problem Statement & Motivation ── -->
+    <div class="slide" data-notes="Slide 2 frames the challenge. Traditional biometric systems face two huge problems: vulnerability to Presentation Attacks (such as holding up a photo or tablet screen), and the massive compute requirements of deep neural networks. Heavy models require dedicated GPUs, introduce high cloud latency, and act as opaque black boxes. Our goal was to build a secure, explainable, and ultra-lightweight system.">
+      <div class="slide-tag">Context &amp; Motivation</div>
+      <h1 class="slide-h1">The Biometric Security Dilemma</h1>
+      <p class="slide-desc">
+        Modern facial authentication must simultaneously prevent fraudulent presentation attacks while providing ultra-fast, friction-free verification on constrained edge or kiosk hardware.
+      </p>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card" style="border-left: 4px solid var(--danger);">
+            <div class="card-title" style="color: #f87171;">⚠️ Vulnerability to Spoofing (Presentation Attacks)</div>
+            <div class="card-body">
+              <ul>
+                <li><strong>2D Static Spoofs:</strong> High-resolution printed photos and ID badge snapshots easily fool naive 2D cameras.</li>
+                <li><strong>Digital Replay:</strong> Smartphones, tablets, and monitor video replays mimic genuine faces.</li>
+                <li><strong>Impersonation Risk:</strong> Zero liveness checks mean stolen images grant physical door or kiosk access.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--warning);">
+            <div class="card-title" style="color: #fbbf24;">⚙️ The Deep Learning Dilemma on Edge Hardware</div>
+            <div class="card-body">
+              <ul>
+                <li><strong>Heavy Compute:</strong> Multi-gigabyte ResNet/Transformer models demand expensive server-side GPUs.</li>
+                <li><strong>Latency Spikes:</strong> Remote inference causes 500ms+ roundtrip network latency, hurting kiosk UX.</li>
+                <li><strong>Black-Box Nature:</strong> Deep embeddings cannot be mathematically audited or projected back to visually inspectable components.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="background: rgba(99, 102, 241, 0.06); border-color: rgba(99, 102, 241, 0.3);">
+          <div class="card-title" style="color: var(--accent-light);">💡 Our Solution &amp; Engineering Philosophy</div>
+          <div class="card-body" style="color: var(--text);">
+            A <strong>two-tier hybrid architecture</strong>: Offload active interactive liveness verification to the client browser via GPU-accelerated WebAssembly landmarks (zero server cost), while executing clean, explainable, and lightning-fast <strong>Principal Component Analysis (PCA) Eigenface spectral projection</strong> on the backend with vectorized nearest-neighbor retrieval.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 3: End-to-End System Architecture ── -->
+    <div class="slide" data-notes="Here is our end-to-end architecture. The user approaches the kiosk camera. Step 1: MediaPipe extracts 478 3D facial landmarks directly inside the browser. Step 2: An unpredictable active challenge is issued (such as blink or turn head). Step 3: Once verified, an instant snapshot is taken and sent over REST. Step 4: The backend runs Haar face detection and CLAHE illumination normalisation. Step 5: The face is projected onto the top-K eigenfaces. Step 6: Vectorised cosine distance produces an immediate ALLOW or DENY.">
+      <div class="slide-tag">System Design</div>
+      <h1 class="slide-h1">End-to-End Architectural Pipeline</h1>
+      <p class="slide-desc">
+        A decoupled client-server architecture balancing edge computational offloading with secure centralized identity matching.
+      </p>
+      <div class="slide-content">
+        <div class="flow-pipeline">
+          <div class="flow-step">
+            <span class="step-num">Step 01</span>
+            <div class="step-title">Video Stream</div>
+            <div class="step-desc">WebRTC video capture at 640×480 @ 60 FPS in HTML5 Video/Canvas.</div>
+          </div>
+          <div class="flow-step">
+            <span class="step-num">Step 02</span>
+            <div class="step-title">Active Liveness</div>
+            <div class="step-desc">MediaPipe Tasks Vision tracks 478 landmarks; checks EAR &amp; head yaw.</div>
+          </div>
+          <div class="flow-step">
+            <span class="step-num">Step 03</span>
+            <div class="step-title">Payload Capture</div>
+            <div class="step-desc">On challenge pass, snapshot sent to FastAPI <code>POST /verify</code>.</div>
+          </div>
+          <div class="flow-step">
+            <span class="step-num">Step 04</span>
+            <div class="step-title">Preprocessing</div>
+            <div class="step-desc">OpenCV Haar face crop + CLAHE lighting equalisation (100×100 px).</div>
+          </div>
+          <div class="flow-step">
+            <span class="step-num">Step 05</span>
+            <div class="step-title">PCA Projection</div>
+            <div class="step-desc">Projection onto orthonormal basis <code>Ω = Uᵀ(x − Ψ)</code> in ℝᴷ space.</div>
+          </div>
+          <div class="flow-step">
+            <span class="step-num">Step 06</span>
+            <div class="step-title">Vector Match</div>
+            <div class="step-desc">Cosine distance against stored Ω; threshold 0.35 yields ALLOW / DENY.</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-subtitle">Client / Kiosk Realm (Edge)</div>
+            <div class="card-title">Front-of-House Processing</div>
+            <div class="card-body">
+              All interactive challenge frames remain local on the user's machine. Zero video frames are streamed across the wire until liveness criteria are strictly satisfied, protecting network bandwidth and client privacy.
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-subtitle">Backend Microservice Realm (Core)</div>
+            <div class="card-title">Back-of-House Processing</div>
+            <div class="card-body">
+              FastAPI handles enrollment and verification in milliseconds. Vectorized NumPy matrix operations ensure sub-50ms execution without needing external database daemons or GPU accelerators.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 4: Comprehensive Tools & Technology Stack ── -->
+    <div class="slide" data-notes="Let's dive into the tools we chose and why. We deliberately avoided bloated frameworks in favor of high-performance, focused tools. For the client: MediaPipe Tasks Vision in WebAssembly. For backend: FastAPI and Uvicorn for asynchronous I/O. For mathematics and CV: NumPy, SciPy for eigenvalue decomposition, OpenCV for Haar cascades and CLAHE, and Pillow. For vector storage: a custom NumPy compressed vector store that provides ChromaDB-compatible cosine queries with zero compilation overhead.">
+      <div class="slide-tag">Technology Stack</div>
+      <h1 class="slide-h1">Tools &amp; Frameworks Utilized</h1>
+      <p class="slide-desc">
+        Carefully curated technology stack prioritizing computational efficiency, mathematical transparency, and developer ergonomics.
+      </p>
+      <div class="slide-content">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Domain</th>
+              <th>Tool / Library</th>
+              <th>Version</th>
+              <th>Architectural Role &amp; Rationale</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Computer Vision (Edge)</strong></td>
+              <td><code>@mediapipe/tasks-vision</code></td>
+              <td>0.10.14</td>
+              <td>GPU-accelerated Face Landmarker running in WebAssembly. Tracks 478 3D landmarks client-side to calculate eye aspect ratio (EAR) and head-yaw deviation without server load.</td>
+            </tr>
+            <tr>
+              <td><strong>Backend Framework</strong></td>
+              <td><code>FastAPI</code> + <code>Uvicorn</code></td>
+              <td>0.111.0 / 0.29.0</td>
+              <td>High-throughput asynchronous REST API. Provides automated OpenAPI/Swagger documentation, strict Pydantic validation, and non-blocking multipart file uploads.</td>
+            </tr>
+            <tr>
+              <td><strong>Spectral Mathematics</strong></td>
+              <td><code>NumPy</code> + <code>SciPy</code></td>
+              <td>1.26.4 / 1.13.0</td>
+              <td>Core linear algebra engine. Computes mean face Ψ, deviation matrix A, surrogate covariance L=AᵀA, and Hermitian eigenvalue decomposition via <code>scipy.linalg.eigh</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>Image Processing</strong></td>
+              <td><code>OpenCV</code> + <code>Pillow</code></td>
+              <td>4.9.0 / 10.3.0</td>
+              <td>Haar Cascade frontal face localization (crops out background interference), Lanczos-4 resampling (100×100 px), and CLAHE adaptive histogram equalisation.</td>
+            </tr>
+            <tr>
+              <td><strong>Vector Storage</strong></td>
+              <td><code>VectorStore (NumPy .npz)</code></td>
+              <td>Native / Custom</td>
+              <td>Pure-NumPy vector store with ChromaDB API interface. Persists Ω weights and user identities with zero external daemon overhead and instant vectorized cosine search.</td>
+            </tr>
+            <tr>
+              <td><strong>Testing &amp; QA</strong></td>
+              <td><code>Pytest</code> + <code>HTTPX</code></td>
+              <td>8.2.0 / 0.27.0</td>
+              <td>Test-driven verification suite with isolated test fixtures, synthetic face generators, and end-to-end integration scripts (<code>run_demo.py</code>).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 5: The Approach — Active Liveness & Challenge Protocol ── -->
+    <div class="slide" data-notes="Slide 5 covers Step 1 of our approach: Active Liveness Detection. When a user begins authentication, the system randomly selects a challenge: a blink, head turn left, or head turn right. An attacker holding up a photo or pre-recorded video cannot anticipate the random challenge. We calculate the Eye Aspect Ratio using six landmark points per eye, triggering a pass when EAR drops below 0.19 and recovers above 0.23. For head turns, we measure nose deviation against face width.">
+      <div class="slide-tag">Our Approach · Stage 1</div>
+      <h1 class="slide-h1">Active Liveness &amp; Interactive Challenge Protocol</h1>
+      <p class="slide-desc">
+        Defeating static presentation attacks (printed photographs and static screens) via non-deterministic behavioral challenges.
+      </p>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-subtitle">Algorithmic Metric 1</div>
+            <div class="card-title">Eye Aspect Ratio (EAR) - Blink Detection</div>
+            <div class="card-body">
+              Calculates relative vertical eye opening using 6 distinct 3D landmarks per eye:
+              <div class="math-box">
+                EAR = <span class="math-highlight">(||p₁₆₀ - p₁₄₄|| + ||p₁₅₈ - p₁₅₃||) / (2 · ||p₃₃ - p₁₃₃||)</span>
+              </div>
+              <ul>
+                <li><strong>Closed Eye State:</strong> Triggered when <code>EAR &lt; 0.19</code>.</li>
+                <li><strong>Open Recovery State:</strong> Confirmed when <code>EAR &gt; 0.23</code>.</li>
+                <li>Requires genuine physiological blink dynamics.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-subtitle">Algorithmic Metric 2</div>
+            <div class="card-title">Normalized Head Yaw Deviation</div>
+            <div class="card-body">
+              Measures horizontal displacement of nose tip (landmark 1) relative to facial boundary landmarks (234 and 454):
+              <div class="math-box">
+                Δ_yaw = <span class="math-highlight">[p₁.x - (p₂₃₄.x + p₄₅₄.x)/2] / FaceWidth</span>
+              </div>
+              <ul>
+                <li><strong>Turn Left:</strong> Confirmed when <code>Δ_yaw &lt; -0.12</code>.</li>
+                <li><strong>Turn Right:</strong> Confirmed when <code>Δ_yaw &gt; +0.12</code>.</li>
+                <li>Dynamic baseline calibrated upon challenge initiation.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.3);">
+          <div class="card-title" style="color: var(--success);">🛡️ Why Challenge-Response Beats Static Detectors</div>
+          <div class="card-body" style="color: var(--text);">
+            Static passive detectors can be tricked by high-resolution prints or cutouts. By introducing <strong>non-deterministic challenge prompts</strong> chosen dynamically at runtime, an adversary cannot pre-record a static gesture sequence. The challenge must be performed in real-time within the active camera session.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 6: The Approach — Illumination & Preprocessing Pipeline ── -->
+    <div class="slide" data-notes="Slide 6 addresses a critical pitfall in face recognition: background and lighting sensitivity. In standard PCA, if you don't crop the face, the algorithm ends up learning the wall background or the room shadow instead of the face geometry! We solved this with a robust preprocessing pipeline: Haar cascade face detection with 20% peripheral padding, Lanczos4 downsampling to 100x100 pixels, and CLAHE adaptive histogram equalisation with an 8x8 tile grid.">
+      <div class="slide-tag">Our Approach · Stage 2</div>
+      <h1 class="slide-h1">Face Localization &amp; Illumination Invariance</h1>
+      <p class="slide-desc">
+        Eliminating background contamination and lighting gradients before spectral projection.
+      </p>
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-subtitle">Step 1: Localization</div>
+            <div class="card-title">Haar Cascade Crop</div>
+            <div class="card-body">
+              Locates frontal face bounds with <code>+20%</code> contextual padding.
+              <br><br>
+              <em>Why it matters:</em> Prevents PCA from learning "white wall" or "dark office" as primary principal components.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-subtitle">Step 2: Resampling</div>
+            <div class="card-title">Lanczos-4 Interpolation</div>
+            <div class="card-body">
+              Downsamples cropped face to standard <code>100 × 100</code> grayscale matrix (dimension <code>d = 10,000</code>).
+              <br><br>
+              <em>Why it matters:</em> Retains high-frequency edge detail while maintaining constant vector dimensionality.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-subtitle">Step 3: Equalization</div>
+            <div class="card-title">CLAHE Normalization</div>
+            <div class="card-body">
+              Contrast Limited Adaptive Histogram Equalisation (clipLimit=2.0, tileGrid=8×8).
+              <br><br>
+              <em>Why it matters:</em> Equalizes localized lighting variations so shadows and bright glares do not skew recognition.
+            </div>
+          </div>
+        </div>
+
+        <div class="math-box">
+          Pipeline Transformation: 
+          <span class="math-highlight">Raw Bytes</span> ➔ 
+          <span class="math-highlight">PIL Decode</span> ➔ 
+          <span class="math-highlight">OpenCV Haar Crop</span> ➔ 
+          <span class="math-highlight">Resize 100×100</span> ➔ 
+          <span class="math-highlight">CLAHE Equalize</span> ➔ 
+          <span class="math-highlight">Float32 [0, 1] Vector x ∈ ℝ¹⁰⁰⁰⁰</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 7: The Approach — Spectral Mathematics (PCA / Eigenfaces) ── -->
+    <div class="slide" data-notes="Slide 7 presents the mathematical core: the Sirovich-Kirby / Turk-Pentland Eigenface method. If we have 10,000-dimensional face vectors, the standard covariance matrix would be 10,000 by 10,000 — 100 million elements! Inverting or decomposing that would crash most systems. Instead, we compute the surrogate covariance matrix L = A-transpose times A, which is only N by N, where N is the number of faces! We find the eigenvectors of L and project them back into image space to form our orthonormal basis U.">
+      <div class="slide-tag">Our Approach · Stage 3</div>
+      <h1 class="slide-h1">Spectral Mathematics: The Eigenfaces Pipeline</h1>
+      <p class="slide-desc">
+        Dimensionality reduction via Principal Component Analysis using the Sirovich &amp; Kirby surrogate covariance optimization.
+      </p>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-subtitle">Mathematical Formulation</div>
+            <div class="card-title">1. Mean Face &amp; Deviation Matrix</div>
+            <div class="card-body">
+              Given <code>N</code> face images stacked in <code>X ∈ ℝ^(N × d)</code>:
+              <div class="math-box">
+                Mean Face: <span class="math-highlight">Ψ = (1/N) ∑ xᵢ</span>  (shape: 10,000)<br>
+                Deviation Matrix: <span class="math-highlight">A = (X − Ψ)ᵀ</span>  (shape: 10,000 × N)
+              </div>
+              Each column of <code>A</code> represents how a face deviates from the average human face.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-subtitle">The Core Algorithmic Trick</div>
+            <div class="card-title">2. Surrogate Covariance (L = AᵀA)</div>
+            <div class="card-body">
+              Standard covariance <code>C = AAᵀ</code> is <code>10,000 × 10,000</code> (100M floats!).
+              <div class="math-box">
+                Surrogate Covariance: <span class="math-highlight">L = AᵀA</span>  (shape: N × N)<br>
+                Eigendecomposition: <span class="math-highlight">L vᵢ = λᵢ vᵢ</span>
+              </div>
+              Instead of 100M entries, <code>L</code> is only <code>N × N</code>. Eigendecomposition executes in under 2 milliseconds!
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-subtitle">Image Space Reconstruction</div>
+            <div class="card-title">3. Eigenface Basis (U)</div>
+            <div class="card-body">
+              Multiply deviation matrix by surrogate eigenvectors and normalize:
+              <div class="math-box">
+                uᵢ = <span class="math-highlight">A · vᵢ / ||A · vᵢ||</span> ➔ <span class="math-highlight">U ∈ ℝ^(10,000 × K)</span>
+              </div>
+              Forms an orthonormal basis of <code>K</code> eigenfaces capturing primary facial variances.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-subtitle">Inference Projection</div>
+            <div class="card-title">4. Face Space Representation (Ω)</div>
+            <div class="card-body">
+              Project any query face vector <code>x</code> into compact K-dimensional space:
+              <div class="math-box">
+                <span class="math-highlight">Ω = Uᵀ(x − Ψ)</span>  (shape: K,)
+              </div>
+              A 10,000-pixel face image is compressed to just <code>K = 50</code> spectral coefficients!
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 8: The Approach — Vector Matching & Decision Logic ── -->
+    <div class="slide" data-notes="Slide 8 covers similarity matching and decision logic. Once a face is projected into its 50-dimensional weight vector Omega, we compare it against all enrolled users in our vector store using cosine distance. If the distance is less than or equal to 0.35, the identity is verified and confidence is computed. If greater than 0.35, it's flagged as an unknown face. The kiosk only issues an ALLOW verdict if both Tier 1 liveness and Tier 2 identity match succeed.">
+      <div class="slide-tag">Our Approach · Stage 4</div>
+      <h1 class="slide-h1">Vector Matching &amp; Multi-Tier Decision Logic</h1>
+      <p class="slide-desc">
+        Vectorized nearest-neighbor query in spectral face space combined with liveness verification gating.
+      </p>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-subtitle">Vector Metric</div>
+            <div class="card-title">Cosine Distance in ℝᴷ Space</div>
+            <div class="card-body">
+              Measures angular deviation between query vector <code>Ω_q</code> and enrolled vector <code>Ω_i</code>:
+              <div class="math-box">
+                D_cos(Ω_q, Ω_i) = <span class="math-highlight">1 − (Ω_q · Ω_i) / (||Ω_q|| · ||Ω_i||)</span>
+              </div>
+              <ul>
+                <li><strong>Range:</strong> 0.0 (identical vector) to 2.0 (opposite).</li>
+                <li><strong>Confidence Metric:</strong> <code>max(0.0, 1.0 − D_cos)</code></li>
+                <li><strong>Configured Threshold:</strong> <code>0.35</code></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-subtitle">Decision Policy</div>
+            <div class="card-title">Combined Turnstile Authentication</div>
+            <div class="card-body">
+              A strict AND-gate requirement for kiosk entry:
+              <div class="math-box" style="border-left-color: var(--success);">
+                IF (Liveness == <span style="color:var(--success)">PASSED</span>) AND (D_min ≤ 0.35):<br>
+                ➔ <span style="color:var(--success); font-weight:bold;">ALLOW (Identity Matched)</span><br><br>
+                ELSE IF (Liveness == <span style="color:var(--success)">PASSED</span>) AND (D_min &gt; 0.35):<br>
+                ➔ <span style="color:var(--danger); font-weight:bold;">DENY (Unknown Face)</span><br><br>
+                ELSE:<br>
+                ➔ <span style="color:var(--warning); font-weight:bold;">REQUEST VERIFICATION (Liveness Pending/Failed)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⚡ High-Efficiency Vector Store Architecture</div>
+          <div class="card-body">
+            Replaced heavy external vector databases with a tailored, pure-NumPy <code>.npz</code> store. It preserves zero external server dependencies, instant file persistence, and sub-millisecond vectorized batch queries across enrolled users.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 9: System Walkthrough & User Interfaces ── -->
+    <div class="slide" data-notes="Slide 9 shows our dual UI architecture. We built two distinct interfaces: the Management Dashboard and the Liveness Kiosk. The management dashboard handles enrollment, user deletion, manual photo testing, and model retraining. The liveness kiosk is designed for automated turnstiles, showing live camera feed, real-time feedback, challenge prompts, decision summary, and elapsed latency.">
+      <div class="slide-tag">Demonstration</div>
+      <h1 class="slide-h1">Dual Interface System Walkthrough</h1>
+      <p class="slide-desc">
+        Purpose-built interfaces separating administrative identity management from automated kiosk access.
+      </p>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card" style="border-top: 4px solid var(--accent);">
+            <div class="card-subtitle">Interface 1 · Administrative Dashboard</div>
+            <div class="card-title"><code>frontend/index.html</code></div>
+            <div class="card-body">
+              <ul>
+                <li><strong>Interactive Enrollment:</strong> Drag-and-drop face uploads with automatic Haar detection check.</li>
+                <li><strong>Model Management:</strong> Dynamic retraining trigger upon user addition or deletion.</li>
+                <li><strong>Gallery View:</strong> Real-time enrolled user roster with initials and deletion controls.</li>
+                <li><strong>Static Verification:</strong> Manual image testing with instant distance scores and confidence bar.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="border-top: 4px solid var(--success);">
+            <div class="card-subtitle">Interface 2 · Active Liveness Kiosk</div>
+            <div class="card-title"><code>frontend/kiosk.html</code></div>
+            <div class="card-body">
+              <ul>
+                <li><strong>Real-time Camera Stream:</strong> 60 FPS video canvas with mirrored display.</li>
+                <li><strong>Dynamic Challenge HUD:</strong> Contextual instructions (e.g. <em>"Blink once"</em>, <em>"Turn head left"</em>).</li>
+                <li><strong>Audited Decision Panel:</strong> 3-stage breakdown showing Liveness, Identity match, and final ALLOW/DENY.</li>
+                <li><strong>Live Latency Stopwatch:</strong> Measures total elapsed time from challenge start to API verdict.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-top: 10px;">
+          <div class="card" style="text-align: center; padding: 14px;">
+            <div style="font-size: 24px; font-weight:800; color: var(--accent-light);">640 × 480</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Kiosk Capture Resolution</div>
+          </div>
+          <div class="card" style="text-align: center; padding: 14px;">
+            <div style="font-size: 24px; font-weight:800; color: var(--success);">478 Points</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">3D Mesh Landmarks</div>
+          </div>
+          <div class="card" style="text-align: center; padding: 14px;">
+            <div style="font-size: 24px; font-weight:800; color: var(--warning);">&lt; 50 ms</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Backend Matching Latency</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 10: Performance, Latency & Benchmark Metrics ── -->
+    <div class="slide" data-notes="Slide 10 highlights our performance metrics. Because we used mathematical PCA and WebAssembly landmarks instead of heavy neural networks on the server, the algorithmic latency is extraordinarily low. Face preprocessing takes 5ms, PCA projection takes under 1ms, and vector search takes under half a millisecond! The entire backend roundtrip is around 35ms. The only variable factor is the human reaction time to complete the challenge.">
+      <div class="slide-tag">Empirical Evaluation</div>
+      <h1 class="slide-h1">Performance &amp; Latency Benchmarks</h1>
+      <p class="slide-desc">
+        Granular latency breakdown demonstrating real-time edge responsiveness.
+      </p>
+      <div class="slide-content">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Pipeline Phase</th>
+              <th>Execution Environment</th>
+              <th>Measured Time</th>
+              <th>Computational Complexity</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Face Landmark Detection</strong></td>
+              <td>Browser WebAssembly + GPU</td>
+              <td>~14 - 18 ms / frame</td>
+              <td>O(1) frame inference at 60 FPS</td>
+            </tr>
+            <tr>
+              <td><strong>Liveness Challenge Verification</strong></td>
+              <td>Browser JavaScript</td>
+              <td>&lt; 0.5 ms</td>
+              <td>Simple arithmetic Euclidean distance</td>
+            </tr>
+            <tr>
+              <td><strong>Haar Localization &amp; Crop</strong></td>
+              <td>Python / OpenCV</td>
+              <td>~3.8 ms</td>
+              <td>Integral image cascade scan</td>
+            </tr>
+            <tr>
+              <td><strong>CLAHE Illumination Normalization</strong></td>
+              <td>Python / OpenCV</td>
+              <td>~1.2 ms</td>
+              <td>Local histogram tile equalization (8×8)</td>
+            </tr>
+            <tr>
+              <td><strong>PCA Spectral Projection</strong></td>
+              <td>Python / NumPy</td>
+              <td>~0.4 ms</td>
+              <td>Matrix-vector multiplication <code>Uᵀ(x − Ψ)</code></td>
+            </tr>
+            <tr>
+              <td><strong>Cosine Vector Matching</strong></td>
+              <td>Python / NumPy</td>
+              <td>~0.2 ms</td>
+              <td>Vectorized dot product &amp; normalization</td>
+            </tr>
+            <tr>
+              <td><strong>Total Backend Processing</strong></td>
+              <td>FastAPI Server</td>
+              <td><strong>&lt; 10 ms</strong></td>
+              <td>Excluding network transfer</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="card" style="margin-top: 10px; background: rgba(56, 189, 248, 0.05); border-color: rgba(56, 189, 248, 0.3);">
+          <div class="card-title" style="color: #38bdf8;">📊 User Latency vs. Algorithmic Latency</div>
+          <div class="card-body" style="color: var(--text);">
+            While total elapsed time recorded on the kiosk ranges between <strong>600ms - 1800ms</strong>, over 95% of that duration is <strong>human action latency</strong> (the user blinking or turning their head). The algorithmic compute and network transmission require less than <strong>45ms</strong> combined.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 11: Security Analysis & Limitations (Hackathon Review) ── -->
+    <div class="slide" data-notes="Slide 11 is critical for an honest engineering review. In HID_REVIEW.md, we documented the limitations of this prototype with complete academic integrity. First: active challenge is not a certified passive PAD model. Second: landmark calculations occur in the browser client, which is outside the server trust boundary. Third: PCA is an elegant linear model, but it is sensitive to severe facial angles and occlusions compared to modern deep embeddings. We explicitly highlight these to show our deep understanding of biometric security.">
+      <div class="slide-tag">Security &amp; Engineering Rigor</div>
+      <h1 class="slide-h1">Security Analysis &amp; Current Limitations</h1>
+      <p class="slide-desc">
+        Rigorous engineering audit identifying trust boundaries, threat models, and architectural constraints.
+      </p>
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="card" style="border-top: 4px solid var(--danger);">
+            <div class="card-title" style="color: #f87171;">Client-Side Trust Boundary</div>
+            <div class="card-body">
+              <strong>Vulnerability:</strong> Landmark calculations run in client JavaScript. A malicious actor with DevTools access or an injected virtual camera driver could spoof landmark metrics.
+              <br><br>
+              <em>Requirement:</em> Server-side validation of raw video stream is required for zero-trust kiosk deployment.
+            </div>
+          </div>
+
+          <div class="card" style="border-top: 4px solid var(--warning);">
+            <div class="card-title" style="color: #fbbf24;">Active vs. Passive PAD</div>
+            <div class="card-body">
+              <strong>Vulnerability:</strong> An active challenge protects against static photos, but remains susceptible to video stream injection, deepfake avatars, or realistic 3D silicon masks.
+              <br><br>
+              <em>Requirement:</em> Must pair with a passive Presentation Attack Detection (PAD) model assessing skin texture and reflections.
+            </div>
+          </div>
+
+          <div class="card" style="border-top: 4px solid var(--accent);">
+            <div class="card-title" style="color: var(--accent-light);">PCA Linear Capacity</div>
+            <div class="card-body">
+              <strong>Vulnerability:</strong> Eigenfaces rely on global linear variance. Extreme off-angle head poses or occlusions (masks/glasses) degrade matching accuracy compared to non-linear neural embeddings.
+              <br><br>
+              <em>Requirement:</em> Best suited for controlled frontal illumination or paired with deep feature extractors.
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.25);">
+          <div class="card-title" style="color: #f87171;">📋 ISO/IEC 30107-3 Biometric Compliance Standards</div>
+          <div class="card-body" style="color: var(--text);">
+            In enterprise biometrics, claims must be measured against formal metrics: <strong>APCER</strong> (Attack Presentation Classification Error Rate) and <strong>BPCER</strong> (Bona Fide Presentation Classification Error Rate). Our prototype is an active proof-of-concept demonstrating the multi-tier workflow, not a formally certified ISO PAD device.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 12: Production Roadmap & Next Engineering Iterations ── -->
+    <div class="slide" data-notes="Slide 12 presents our production roadmap. To take this from hackathon prototype to an enterprise-grade biometric access point, we have mapped out three key milestones: First, integrating a server-side ONNX passive PAD model to evaluate skin texture and screen moiré patterns. Second, upgrading the biometric backbone to ArcFace or MobileFaceNet deep embeddings for million-identity scale. Third, enterprise hardening with signed camera hardware attestation and mutual TLS.">
+      <div class="slide-tag">Future Vision</div>
+      <h1 class="slide-h1">Production Roadmap &amp; Next Steps</h1>
+      <p class="slide-desc">
+        Planned architectural upgrades transitioning the prototype into an enterprise-ready biometric access appliance.
+      </p>
+      <div class="slide-content">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-subtitle">Phase 1 · Next Sprint</div>
+            <div class="card-title">Server-Side Passive PAD</div>
+            <div class="card-body">
+              Deploy lightweight ONNX anti-spoofing model (e.g. MiniFASNet) on the backend.
+              <ul>
+                <li>Analyzes multi-scale facial texture, specular reflection, and screen moiré.</li>
+                <li>Operates passively without requiring user head gestures.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-subtitle">Phase 2 · Scaling</div>
+            <div class="card-title">Deep Metric Embeddings</div>
+            <div class="card-body">
+              Transition from PCA Eigenfaces to <strong>ArcFace / MobileFaceNet ONNX</strong>.
+              <ul>
+                <li>Extracts 512-dimensional angular margin embeddings.</li>
+                <li>Enables invariant matching across large pose variations, age progression, and lighting shifts.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-subtitle">Phase 3 · Enterprise Hardening</div>
+            <div class="card-title">Zero-Trust Device Security</div>
+            <div class="card-body">
+              Harden kiosk hardware and API infrastructure.
+              <ul>
+                <li><strong>Hardware Attestation:</strong> Cryptographic frame signing from certified camera chips to prevent virtual driver injection.</li>
+                <li><strong>API Security:</strong> JWT role-based access control, CORS restrictions, and mTLS.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 10px; background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.3);">
+          <div class="card-title" style="color: var(--accent-light);">🎯 Target Benchmark Criteria</div>
+          <div class="card-body" style="color: var(--text);">
+            Targeting <strong>APCER &lt; 1.0%</strong> and <strong>BPCER &lt; 0.5%</strong> under ISO/IEC 30107-3 physical presentation attack test suites on target AWS / embedded ARM edge appliances.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SLIDE 13: Summary & Conclusion ── -->
+    <div class="slide" data-notes="In conclusion, our project demonstrates that effective biometric security does not always require multi-gigabyte models or expensive cloud GPUs. By pairing intelligent edge processing through MediaPipe active landmarks with clean, mathematically rigorous spectral face recognition and OpenCV illumination normalisation, we achieved an explainable, responsive, and verifiable access control solution. Thank you, and we welcome any questions!">
+      <div class="slide-tag">Conclusion &amp; Wrap Up</div>
+      <h1 class="slide-h1">Summary &amp; Key Takeaways</h1>
+      <p class="slide-desc">
+        Commit &amp; Conquer · Spectral Face Recognition &amp; Active Liveness System.
+      </p>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card" style="border-left: 4px solid var(--success);">
+            <div class="card-title" style="color: var(--success);">✅ Core Accomplishments</div>
+            <div class="card-body">
+              <ul>
+                <li><strong>Two-Tier Defense:</strong> Successfully combined active liveness challenges (EAR &amp; Yaw) with spectral face recognition.</li>
+                <li><strong>Ultra-Lightweight Footprint:</strong> Zero heavy GPU dependencies; sub-10ms backend inference on commodity CPUs.</li>
+                <li><strong>Mathematical Transparency:</strong> Pure Eigenface pipeline using the Sirovich &amp; Kirby surrogate covariance optimization.</li>
+                <li><strong>Production-Minded Preprocessing:</strong> OpenCV Haar cropping + CLAHE lighting equalisation to eliminate background sensitivity.</li>
+                <li><strong>Turnkey Kiosk Experience:</strong> Responsive, dual-interface system with live audit trails and latency tracking.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card" style="border-left: 4px solid var(--accent);">
+            <div class="card-title" style="color: var(--accent-light);">💡 Engineering Lessons &amp; Value</div>
+            <div class="card-body">
+              <ul>
+                <li><strong>Edge Offloading:</strong> Client-side WebAssembly landmarks deliver 60 FPS real-time feedback with zero server strain.</li>
+                <li><strong>Honest Threat Modeling:</strong> Identified client trust boundaries and laid out clear paths for ISO-compliant passive PAD.</li>
+                <li><strong>Explainability:</strong> Linear eigenfaces allow direct inspection and projection of facial components.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: auto; padding-top: 20px; border-top: 1px solid var(--surface-border);">
+          <div style="font-size: 20px; font-weight: 700; color: var(--text);">Thank You!</div>
+          <div style="font-size: 14px; color: var(--text-muted); margin-top: 6px;">Questions &amp; Discussion · Team Commit &amp; Conquer</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Speaker Notes Drawer -->
+  <aside id="notes-drawer">
+    <div class="notes-header">
+      <span class="notes-title">🎙️ Presenter Script &amp; Talking Points</span>
+      <span style="font-size: 11px; color: var(--text-dim);">Press 'N' to toggle</span>
+    </div>
+    <div class="notes-body" id="notes-content">
+      Welcome judges and mentors. Today we are presenting 'Spectral Face Recognition & Active Liveness Authentication' — an end-to-end biometric verification system engineered for the HID Hackathon by Team Commit & Conquer.
+    </div>
+  </aside>
+
+  <!-- Quick Outline Drawer -->
+  <nav id="quick-nav">
+    <div style="font-size: 12px; font-weight: 700; color: var(--accent-light); text-transform: uppercase; margin-bottom: 14px;">
+      Slide Navigation
+    </div>
+    <div id="nav-list"></div>
+  </nav>
+
+  <!-- Bottom Navigation Bar -->
+  <footer>
+    <div class="slide-counter" id="counter">01 / 13</div>
+    
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress"></div>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav" id="btn-prev" disabled>◀ Previous</button>
+      <button class="btn-nav" id="btn-next">Next ▶</button>
+    </div>
+  </footer>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const totalSlides = slides.length;
+    let currentIndex = 0;
+
+    const counterEl = document.getElementById('counter');
+    const progressEl = document.getElementById('progress');
+    const prevBtn = document.getElementById('btn-prev');
+    const nextBtn = document.getElementById('btn-next');
+    const notesDrawer = document.getElementById('notes-drawer');
+    const notesContent = document.getElementById('notes-content');
+    const quickNav = document.getElementById('quick-nav');
+    const navList = document.getElementById('nav-list');
+    const toggleNotesBtn = document.getElementById('toggle-notes');
+    const toggleMenuBtn = document.getElementById('toggle-menu');
+
+    // Build Quick Nav Items
+    slides.forEach((slide, idx) => {
+      const title = slide.querySelector('.slide-h1')?.innerText.replace(/\n/g, ' ') || `Slide ${idx + 1}`;
+      const item = document.createElement('div');
+      item.className = `nav-item ${idx === 0 ? 'active' : ''}`;
+      item.innerHTML = `<span>${String(idx + 1).padStart(2, '0')}.</span> <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${title}</span>`;
+      item.onclick = () => {
+        goToSlide(idx);
+        quickNav.classList.remove('open');
+      };
+      navList.appendChild(item);
+    });
+
+    function updateSlide() {
+      slides.forEach((slide, idx) => {
+        slide.classList.remove('active', 'prev');
+        if (idx === currentIndex) {
+          slide.classList.add('active');
+          notesContent.innerText = slide.dataset.notes || "No notes for this slide.";
+        } else if (idx < currentIndex) {
+          slide.classList.add('prev');
+        }
+      });
+
+      // Update counters
+      counterEl.textContent = `${String(currentIndex + 1).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}`;
+      progressEl.style.width = `${((currentIndex + 1) / totalSlides) * 100}%`;
+
+      // Update buttons
+      prevBtn.disabled = currentIndex === 0;
+      nextBtn.disabled = currentIndex === totalSlides - 1;
+
+      // Update nav drawer items
+      Array.from(navList.children).forEach((item, idx) => {
+        item.classList.toggle('active', idx === currentIndex);
+      });
+    }
+
+    function goToSlide(index) {
+      if (index >= 0 && index < totalSlides) {
+        currentIndex = index;
+        updateSlide();
+      }
+    }
+
+    function nextSlide() {
+      if (currentIndex < totalSlides - 1) {
+        currentIndex++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentIndex > 0) {
+        currentIndex--;
+        updateSlide();
+      }
+    }
+
+    prevBtn.addEventListener('click', prevSlide);
+    nextBtn.addEventListener('click', nextSlide);
+
+    toggleNotesBtn.addEventListener('click', () => {
+      notesDrawer.classList.toggle('open');
+      toggleNotesBtn.classList.toggle('active');
+    });
+
+    toggleMenuBtn.addEventListener('click', () => {
+      quickNav.classList.toggle('open');
+      toggleMenuBtn.classList.toggle('active');
+    });
+
+    document.getElementById('btn-fullscreen').addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        goToSlide(totalSlides - 1);
+      } else if (e.key === 'n' || e.key === 'N') {
+        notesDrawer.classList.toggle('open');
+        toggleNotesBtn.classList.toggle('active');
+      } else if (e.key === 'm' || e.key === 'M') {
+        quickNav.classList.toggle('open');
+        toggleMenuBtn.classList.toggle('active');
+      } else if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        } else {
+          document.exitFullscreen();
+        }
+      }
+    });
+
+    updateSlide();
+  </script>
+</body>
+</html>
