@@ -8,7 +8,19 @@ Surprise Challenge 1: Access with Campus Schedule.
 from datetime import datetime
 import sys
 from pathlib import Path
-import pytest
+import sys
+
+# Light fixture helper compatible with pytest and standalone test runner
+try:
+    if "pytest" in sys.modules:
+        import pytest
+        fixture = pytest.fixture
+    else:
+        def fixture(f):
+            return f
+except Exception:
+    def fixture(f):
+        return f
 
 # Ensure backend directory is in sys.path
 backend_path = Path(__file__).resolve().parent.parent / "backend"
@@ -19,7 +31,7 @@ from schedule.models import UserRole, CampusZone, DecisionOutcome
 from schedule.engine import CampusScheduleEngine
 
 
-@pytest.fixture
+@fixture
 def engine():
     return CampusScheduleEngine()
 
@@ -130,3 +142,45 @@ def test_campus_holiday(engine):
     )
     assert outcome == DecisionOutcome.DENY
     assert status == "campus_holiday_closed"
+
+
+def test_admin_universal_clearance(engine):
+    # Admin can access high-security server room at any hour
+    midnight = datetime(2026, 11, 17, 2, 30)
+    outcome, reason, status = engine.evaluate_schedule(
+        UserRole.ADMIN, CampusZone.SERVER_ROOM, midnight
+    )
+    assert outcome == DecisionOutcome.ALLOW
+    assert status == "admin_clearance"
+
+    # Admin has universal executive clearance across all campus zones
+    all_zones = [
+        CampusZone.MAIN_GATE,
+        CampusZone.ENGINEERING_LAB,
+        CampusZone.LIBRARY,
+        CampusZone.ADMIN_OFFICE,
+        CampusZone.DORMITORY,
+        CampusZone.SERVER_ROOM,
+        CampusZone.FACULTY_LOUNGE,
+        CampusZone.CLASSROOM_HALL,
+    ]
+    for z in all_zones:
+        out, _, st = engine.evaluate_schedule(UserRole.ADMIN, z, midnight)
+        assert out == DecisionOutcome.ALLOW
+        assert st == "admin_clearance"
+
+
+def test_admin_lockdown_override(engine):
+    tuesday_noon = datetime(2026, 11, 17, 12, 0)
+    engine.set_lockdown(CampusZone.ENGINEERING_LAB, enabled=True, reason="Chemical Containment")
+
+    # Regular student and user denied
+    out_student, _, _ = engine.evaluate_schedule("student", "engineering_lab", tuesday_noon)
+    assert out_student == DecisionOutcome.DENY
+
+    # Admin and Security can access
+    out_admin, _, _ = engine.evaluate_schedule("admin", "engineering_lab", tuesday_noon)
+    assert out_admin == DecisionOutcome.ALLOW
+
+    out_sec, _, _ = engine.evaluate_schedule("security", "engineering_lab", tuesday_noon)
+    assert out_sec == DecisionOutcome.ALLOW
