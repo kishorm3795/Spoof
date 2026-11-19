@@ -1,0 +1,633 @@
+/* ==========================================================================
+   HID Smart Entry Kiosk Stylesheet
+   Precision Enterprise Glassmorphism & Cyberpunk Security HUD
+   ========================================================================== */
+
+:root {
+  --bg-canvas: #070c18;
+  --bg-subsurface: #0b1325;
+  --surface-glass: rgba(13, 23, 42, 0.78);
+  --surface-border: rgba(255, 255, 255, 0.12);
+  --surface-border-focus: rgba(0, 194, 255, 0.5);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-dim: #64748b;
+
+  --accent-hid: #0066cc;
+  --accent-cyan: #00c2ff;
+  --accent-cyan-glow: rgba(0, 194, 255, 0.35);
+
+  --verdict-allow: #10b981;
+  --verdict-allow-glow: rgba(16, 185, 129, 0.35);
+  --verdict-verify: #f59e0b;
+  --verdict-verify-glow: rgba(245, 158, 11, 0.35);
+  --verdict-deny: #ef4444;
+  --verdict-deny-glow: rgba(239, 68, 68, 0.35);
+
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-canvas);
+  background-image: radial-gradient(ellipse at 50% 0%, #11203d 0%, #070c18 75%);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  padding: 24px;
+  overflow-x: hidden;
+}
+
+/* ── App Container ── */
+.app-container {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Header ── */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--surface-border);
+  padding: 16px 24px;
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hid-logo-badge {
+  background: linear-gradient(135deg, #0066cc, #00c2ff);
+  color: white;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  font-size: 15px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  box-shadow: 0 0 15px var(--accent-cyan-glow);
+}
+
+.title-group h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.title-group p {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.header-status-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--surface-border);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.status-pill.online {
+  border-color: rgba(16, 185, 129, 0.4);
+  color: var(--verdict-allow);
+}
+
+.status-pill.offline {
+  border-color: rgba(245, 158, 11, 0.5);
+  color: var(--verdict-verify);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Main Layout ── */
+.kiosk-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 1fr);
+  gap: 20px;
+}
+
+/* ── Cards & Surfaces ── */
+.glass-card {
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* ── HUD Camera Viewport ── */
+.viewport-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.camera-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 520px;
+  background: #020611;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+}
+
+video#webcam {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+canvas#overlayCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* HUD Reticle Overlay */
+.hud-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 62%;
+  height: 72%;
+  border-radius: 20px;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hud-reticle::before,
+.hud-reticle::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: var(--accent-cyan);
+  border-style: solid;
+  transition: border-color 0.3s;
+}
+
+.hud-reticle::before {
+  top: 0; left: 0;
+  border-width: 3px 0 0 3px;
+  border-top-left-radius: 12px;
+}
+
+.hud-reticle::after {
+  bottom: 0; right: 0;
+  border-width: 0 3px 3px 0;
+  border-bottom-right-radius: 12px;
+}
+
+.reticle-corner-tr,
+.reticle-corner-bl {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: var(--accent-cyan);
+  border-style: solid;
+  transition: border-color 0.3s;
+}
+
+.reticle-corner-tr {
+  top: 0; right: 0;
+  border-width: 3px 3px 0 0;
+  border-top-right-radius: 12px;
+}
+
+.reticle-corner-bl {
+  bottom: 0; left: 0;
+  border-width: 0 0 3px 3px;
+  border-bottom-left-radius: 12px;
+}
+
+/* Reticle Verdict States */
+.hud-reticle.allow::before,
+.hud-reticle.allow::after,
+.hud-reticle.allow .reticle-corner-tr,
+.hud-reticle.allow .reticle-corner-bl {
+  border-color: var(--verdict-allow);
+  box-shadow: 0 0 16px var(--verdict-allow-glow);
+}
+
+.hud-reticle.verify::before,
+.hud-reticle.verify::after,
+.hud-reticle.verify .reticle-corner-tr,
+.hud-reticle.verify .reticle-corner-bl {
+  border-color: var(--verdict-verify);
+  box-shadow: 0 0 16px var(--verdict-verify-glow);
+}
+
+.hud-reticle.deny::before,
+.hud-reticle.deny::after,
+.hud-reticle.deny .reticle-corner-tr,
+.hud-reticle.deny .reticle-corner-bl {
+  border-color: var(--verdict-deny);
+  box-shadow: 0 0 16px var(--verdict-deny-glow);
+}
+
+/* Live HUD Telemetry Tags in Viewport */
+.hud-telemetry-strip {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: rgba(3, 7, 18, 0.75);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.hud-timer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sla-badge {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--verdict-allow);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+/* ── Controls Strip ── */
+.kiosk-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #0066cc, #00a2ff);
+  color: white;
+  box-shadow: 0 4px 18px rgba(0, 102, 204, 0.4);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0073e6, #00bfff);
+  box-shadow: 0 6px 24px rgba(0, 102, 204, 0.6);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--surface-border);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Telemetry & Decision Panel ── */
+.telemetry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.verdict-banner {
+  padding: 20px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--surface-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.verdict-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.verdict-title {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--text-dim);
+}
+
+.verdict-reason {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* State themes for Verdict */
+.verdict-banner.allow {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+.verdict-banner.allow .verdict-title { color: var(--verdict-allow); }
+
+.verdict-banner.verify {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.verdict-banner.verify .verdict-title { color: var(--verdict-verify); }
+
+.verdict-banner.deny {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.verdict-banner.deny .verdict-title { color: var(--verdict-deny); }
+
+/* Telemetry Grid */
+.telemetry-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.telemetry-row {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metric-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.metric-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.metric-tag {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Interactive Simulator Labs (Schedule, Offline, Spoof) ── */
+.simulator-drawer {
+  background: rgba(9, 14, 27, 0.85);
+  border: 1px solid var(--surface-border);
+  border-radius: 16px;
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drawer-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.simulator-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-group label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+select, input[type="text"], input[type="time"] {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+select:focus, input:focus {
+  border-color: var(--surface-border-focus);
+}
+
+/* Attack quick-injector buttons */
+.attack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.btn-attack {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.btn-attack:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--verdict-deny);
+  color: white;
+}
+
+.btn-live-inject {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+.btn-live-inject:hover {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: var(--verdict-allow);
+  color: white;
+}
+
+/* ── Modal (Step-Up OTP) ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.modal-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-content {
+  background: var(--bg-subsurface);
+  border: 1px solid var(--surface-border-focus);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 440px;
+  padding: 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modal-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.modal-header p {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.otp-input {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  letter-spacing: 0.3em;
+  text-align: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--surface-border);
+  border-radius: 10px;
+  color: var(--accent-cyan);
+  outline: none;
+}
+
+.otp-input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 16px var(--accent-cyan-glow);
+}
+
+/* ── Responsive ── */
+@media (max-width: 920px) {
+  body { padding: 14px; }
+  .kiosk-grid { grid-template-columns: 1fr; }
+}

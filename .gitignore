@@ -1,0 +1,27 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Generated model and vector stores (persisted locally, not tracked)
+data/vector_store.npz
+data/raw_faces.npz
+data/offline_audit.jsonl
+data/central_reconciled_audit.jsonl
+data/user_metadata.json
+data/benchmark_results.json
+models/eigenfaces.npz
+converted_image_1.png
+HIDhackathon-main/
