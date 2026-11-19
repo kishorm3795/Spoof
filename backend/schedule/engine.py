@@ -290,6 +290,11 @@ class CampusScheduleEngine:
         if role_enum == UserRole.ADMIN:
             return DecisionOutcome.ALLOW, "Campus Administrator authorized with universal executive clearance", "admin_clearance"
 
+        # 3. Academic Deans have senior administrative clearance
+        if role_enum == UserRole.DEAN and zone_enum != CampusZone.SERVER_ROOM:
+            return DecisionOutcome.ALLOW, "Academic Dean authorized with senior administrative clearance", "dean_clearance"
+
+
         # Check role permission
         if role_enum not in policy.allowed_roles:
             return (
