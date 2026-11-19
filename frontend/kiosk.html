@@ -152,8 +152,10 @@
             <option value="engineering_lab">Engineering Lab (08:00 - 20:00, Grace to 22:00)</option>
             <option value="library">Academic Library (07:00 - 23:00)</option>
             <option value="admin_office">Administrative Office (08:30 - 17:30 Mon-Fri)</option>
-            <option value="dormitory">Student Dormitories</option>
+            <option value="dormitory">Student Dormitories (24/7 Residential)</option>
             <option value="server_room_high_security">Datacenter / Server Room (High Security)</option>
+            <option value="faculty_lounge">Faculty &amp; Staff Lounge (06:00 - 23:00)</option>
+            <option value="classroom_hall">Lecture Halls &amp; Classrooms (07:30 - 21:30)</option>
           </select>
         </div>
 
@@ -161,12 +163,18 @@
         <div class="control-group">
           <label for="selectRole">Claimed User Role</label>
           <select id="selectRole">
-            <option value="student">Student</option>
-            <option value="faculty">Faculty Member</option>
+            <option value="auto">Auto-Detect Role (from Recognized Face)</option>
+            <option value="admin">Administrator (Campus Executive · All-Access)</option>
+            <option value="teacher">Teacher / Professor (Faculty &amp; Labs)</option>
+            <option value="student" selected>Student (Academic &amp; Dormitories)</option>
+            <option value="user">General Campus User (Baseline Pass)</option>
+            <option value="researcher">Research Fellow (24/7 Research Lab)</option>
+            <option value="dean">Academic Dean (Senior Executive)</option>
             <option value="staff">Administrative / IT Staff</option>
-            <option value="visitor">Visitor</option>
-            <option value="contractor">Contractor</option>
             <option value="security">Security Personnel (Universal Bypass)</option>
+            <option value="visitor">Visitor (Temporary Daytime Pass)</option>
+            <option value="contractor">Contractor / Operations</option>
+            <option value="maintenance">Facilities &amp; Maintenance</option>
           </select>
         </div>
 

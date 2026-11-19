@@ -18,12 +18,13 @@ Auto-generated Swagger UI available at http://localhost:8000/docs
 from __future__ import annotations
 
 import time
+import json
 from datetime import datetime
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import RAW_FACES_PATH, K
+from config import RAW_FACES_PATH, USER_METADATA_PATH, K
 from image_utils import preprocess_bytes, preprocess_bytes_with_info
 from pca_engine import PCAEngine
 from chroma_store import ChromaStore
@@ -86,6 +87,22 @@ def _save_raw(names: list[str], X: np.ndarray) -> None:
     np.savez_compressed(RAW_FACES_PATH, names=np.array(names), X=X)
 
 
+def _load_user_metadata() -> dict[str, dict]:
+    if not USER_METADATA_PATH.exists():
+        return {}
+    try:
+        with open(USER_METADATA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_user_metadata(meta: dict[str, dict]) -> None:
+    USER_METADATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(USER_METADATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2)
+
+
 def _retrain_and_upsert() -> int:
     """Rebuild PCA from all raw faces, re-project, upsert to vector store."""
     names, X = _load_raw()
@@ -131,6 +148,8 @@ async def inspect_liveness(
 @app.post("/register", tags=["faces"])
 async def register(
     name:  str        = Form(..., description="User's full name"),
+    role:  str        = Form(default="student", description="Campus user role (admin, teacher, student, user, researcher, dean, staff, security, visitor)"),
+    schedule_preset: str = Form(default="campus_hours", description="Schedule preset (campus_hours, 24x7, lab_hours, none)"),
     image: UploadFile = File(..., description="Face image (jpg, png, etc.)"),
 ):
     """
@@ -138,8 +157,9 @@ async def register(
 
     1. Detect + crop face region, apply CLAHE normalisation
     2. Append preprocessed vector to raw face store
-    3. Retrain PCA with all stored faces
-    4. Re-project everyone → upsert Ω vectors into vector store
+    3. Save user role & schedule metadata
+    4. Retrain PCA with all stored faces
+    5. Re-project everyone → upsert Ω vectors into vector store
     """
     if not name.strip():
         raise HTTPException(status_code=400, detail="Name must not be empty.")
@@ -161,12 +181,23 @@ async def register(
 
     _save_raw(names, X)
 
+    # Store user role and metadata
+    clean_role = role.strip().lower()
+    meta = _load_user_metadata()
+    meta[name] = {
+        "role": clean_role,
+        "schedule": schedule_preset,
+        "enrolledAt": datetime.now().strftime("%Y-%m-%d"),
+    }
+    _save_user_metadata(meta)
+
     n = _retrain_and_upsert()
 
     return {
         "success":     True,
-        "message":     f"'{name}' registered. Model trained with {n} face(s).",
+        "message":     f"'{name}' registered as {clean_role.upper()}. Model trained with {n} face(s).",
         "total_users": n,
+        "role":        clean_role,
         "model_ready": pca.is_trained,
         "face_detected": face_found,   # frontend can warn if False
     }
@@ -207,7 +238,7 @@ async def verify(
 @app.post("/access/evaluate", tags=["kiosk"])
 async def evaluate_kiosk_access(
     image: UploadFile = File(..., description="Face image from entry camera"),
-    role: str = Form(default="student", description="Claimed user role"),
+    role: str = Form(default="auto", description="Claimed user role or 'auto' to auto-detect from enrolled profile"),
     zone: str = Form(default="main_gate", description="Target campus facility zone"),
     offline: bool = Form(default=False, description="Simulate offline air-gapped kiosk mode"),
     simulated_time: str = Form(default="", description="Optional simulated ISO datetime string for schedule testing"),
@@ -263,12 +294,24 @@ async def evaluate_kiosk_access(
         biometric_outcome = "ALLOW"
         bio_reason = f"Live person confirmed and matched to enrolled identity '{matched_name}'"
 
+    # Resolve effective role (auto-resolve from registered identity if requested)
+    is_auto_role = role.strip().lower() in ["", "auto", "default"]
+    enrolled_role = None
+    if is_identity_match and matched_name != "Unknown":
+        user_meta = _load_user_metadata().get(matched_name, {})
+        enrolled_role = user_meta.get("role", "student")
+
+    if is_auto_role:
+        effective_role = enrolled_role or "visitor"
+    else:
+        effective_role = role.strip()
+
     # 3. Handle Offline vs Online Mode
     if offline:
         offline_res = local_evaluator.evaluate_offline(
             biometric_match=is_identity_match,
             user_name=matched_name,
-            user_role=role,
+            user_role=effective_role,
             zone=zone,
             cosine_distance=cosine_dist,
             liveness_score=liveness_res["liveness_score"],
@@ -283,7 +326,7 @@ async def evaluate_kiosk_access(
         schedule_eval = schedule_engine.evaluate_access(
             biometric_outcome=biometric_outcome,
             user_name=matched_name,
-            user_role=role,
+            user_role=effective_role,
             zone=zone,
             dt=dt_now,
         )
@@ -306,9 +349,12 @@ async def evaluate_kiosk_access(
             "identity":   identity_res,
         },
         "schedule": {
-            "zone":            zone,
-            "role":            role,
-            "schedule_status": sched_status,
+            "zone":               zone,
+            "role":               effective_role,
+            "claimed_role":       role,
+            "enrolled_role":      enrolled_role,
+            "role_auto_detected": is_auto_role,
+            "schedule_status":    sched_status,
         },
         "offline_mode":     offline,
         "total_latency_ms": round(elapsed_ms, 2),
@@ -328,6 +374,111 @@ def get_schedule_policies():
             "is_high_security": pol.is_high_security,
         }
     return {"zones": out, "active_lockdowns": {k.value: v for k, v in schedule_engine.active_lockdowns.items()}}
+
+
+@app.get("/roles", tags=["schedule"])
+def get_roles_catalog():
+    """Returns all supported university roles with clearance descriptions and styling metadata."""
+    return {
+        "roles": [
+            {
+                "id": "admin",
+                "title": "Campus Administrator",
+                "category": "Administration",
+                "description": "Universal administrative executive clearance across all campus facilities & server rooms",
+                "badge_color": "#A855F7",
+                "universal_clearance": True,
+            },
+            {
+                "id": "teacher",
+                "title": "Teacher / Professor",
+                "category": "Academic",
+                "description": "Faculty lounge, classrooms, library, and 24/7 research laboratory privileges",
+                "badge_color": "#3B82F6",
+                "universal_clearance": False,
+            },
+            {
+                "id": "student",
+                "title": "Student",
+                "category": "Academic",
+                "description": "Standard classroom, library, dormitory, and laboratory daytime curfew access",
+                "badge_color": "#10B981",
+                "universal_clearance": False,
+            },
+            {
+                "id": "user",
+                "title": "General Campus User",
+                "category": "General",
+                "description": "Registered campus attendee with main gate, library, and public concourse clearance",
+                "badge_color": "#06B6D4",
+                "universal_clearance": False,
+            },
+            {
+                "id": "faculty",
+                "title": "Faculty Member",
+                "category": "Academic",
+                "description": "Department faculty with classroom, lab, library, and faculty lounge access",
+                "badge_color": "#2563EB",
+                "universal_clearance": False,
+            },
+            {
+                "id": "researcher",
+                "title": "Research Fellow",
+                "category": "Academic",
+                "description": "Specialized lab clearance, engineering computing facilities, and library",
+                "badge_color": "#14B8A6",
+                "universal_clearance": False,
+            },
+            {
+                "id": "dean",
+                "title": "Academic Dean",
+                "category": "Administration",
+                "description": "Senior executive dean clearance across academic and administrative wings",
+                "badge_color": "#EC4899",
+                "universal_clearance": True,
+            },
+            {
+                "id": "staff",
+                "title": "IT & Administrative Staff",
+                "category": "Operations",
+                "description": "Administrative offices and datacenter maintenance clearance",
+                "badge_color": "#F97316",
+                "universal_clearance": False,
+            },
+            {
+                "id": "security",
+                "title": "Campus Security Officer",
+                "category": "Security",
+                "description": "24/7 Universal campus clearance, patrol bypass, and emergency response",
+                "badge_color": "#EF4444",
+                "universal_clearance": True,
+            },
+            {
+                "id": "visitor",
+                "title": "Visitor / Guest",
+                "category": "Public",
+                "description": "Temporary daytime pass for campus perimeter and public facilities",
+                "badge_color": "#64748B",
+                "universal_clearance": False,
+            },
+            {
+                "id": "contractor",
+                "title": "Contractor / Vendor",
+                "category": "Operations",
+                "description": "Scheduled facility maintenance and contractor work window",
+                "badge_color": "#EAB308",
+                "universal_clearance": False,
+            },
+            {
+                "id": "maintenance",
+                "title": "Facilities & Maintenance",
+                "category": "Operations",
+                "description": "Utility infrastructure, laboratory servicing, dormitories, and repairs",
+                "badge_color": "#8B5CF6",
+                "universal_clearance": False,
+            },
+        ]
+    }
 
 
 @app.post("/schedule/lockdown", tags=["schedule"])
@@ -486,7 +637,20 @@ def trigger_performance_benchmark():
 
 @app.get("/users", tags=["faces"])
 def list_users():
-    return {"users": store.list_users(), "count": store.count()}
+    users = store.list_users()
+    meta = _load_user_metadata()
+    return {
+        "users": users,
+        "count": store.count(),
+        "metadata": {
+            u: meta.get(u, {
+                "role": "student",
+                "schedule": "campus_hours",
+                "enrolledAt": "2026-11-17",
+            })
+            for u in users
+        },
+    }
 
 
 @app.delete("/users/{name}", tags=["faces"])
@@ -500,6 +664,12 @@ def delete_user(name: str):
     X   = np.delete(X, idx, axis=0)
     _save_raw(names, X)
     store.delete_face(name)
+
+    # Clean up user role metadata
+    meta = _load_user_metadata()
+    if name in meta:
+        meta.pop(name, None)
+        _save_user_metadata(meta)
 
     n = _retrain_and_upsert()
     return {

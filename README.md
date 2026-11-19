@@ -36,13 +36,25 @@ Distinguishes live human faces from presentation attacks within **2 seconds** ac
 
 $$\text{Decision} = \text{Biometric Result} + \text{Campus Access Schedule} \longrightarrow \text{ALLOW / STEP-UP VERIFICATION / DENY}$$
 
-- **Role-Based Clearance**: `student`, `faculty`, `staff`, `visitor`, `contractor`, `security`.
+- **Comprehensive University Role Hierarchy**:
+  - `admin`: Campus Administrator with universal executive clearance across all facilities, offices, and server rooms.
+  - `teacher` / `faculty`: Teachers & Professors with access to classrooms, faculty lounge, library, and 24/7 research lab privileges.
+  - `student`: Standard students with classroom, dorm, library, and lab daytime curfew (08:00–20:00, grace to 22:00 with step-up OTP).
+  - `user`: General campus users / registered members with perimeter concourse and library access.
+  - `researcher`: Graduate & Lab Researchers with 24/7 dedicated engineering and research cluster access.
+  - `dean`: Academic Deans with senior executive academic clearance.
+  - `staff`: IT & Operational Staff with administrative office and datacenter maintenance clearance.
+  - `security`: Campus Security Personnel with 24/7 universal clearance and emergency perimeter override.
+  - `visitor`, `contractor`, `maintenance`: Public daytime pass and scheduled operational utility access.
 - **Facility Zones**:
-  - `main_gate`: 24/7 access for campus members; scheduled for visitors.
-  - `engineering_lab`: 08:00–20:00 regular access; 20:00–22:00 after-hours grace (requires `STEP-UP VERIFICATION`); 22:00–08:00 curfew (`DENY`).
-  - `library`: 07:00–23:00 everyday; 24/7 for students during finals.
-  - `admin_office`: Mon–Fri 08:30–17:30 business hours.
-  - `server_room_high_security`: Strict IT staff and security access only.
+  - `main_gate`: 24/7 access for campus members; daytime pass for visitors.
+  - `engineering_lab`: 08:00–20:00 regular access; 20:00–22:00 after-hours grace (requires `STEP-UP VERIFICATION`); 22:00–08:00 curfew (`DENY`). Teachers and researchers receive 24/7 research privileges.
+  - `library`: 07:00–23:00 everyday for students, faculty, and campus users.
+  - `admin_office`: Mon–Fri 08:30–17:30 business hours (restricted to staff, deans, teachers, admin, security).
+  - `dormitory`: 24/7 residential access for students, admin, security, and maintenance.
+  - `server_room_high_security`: Strict IT staff, administrator, and security access only (locks down fail-secure when offline).
+  - `faculty_lounge`: 06:00–23:00 for teachers, faculty, deans, admin, and staff.
+  - `classroom_hall`: 07:30–21:30 for teachers, students, security, and academic staff.
 - **Emergency Lockdowns & Holidays**: Configurable dynamic curfew overrides.
 
 ---
@@ -89,6 +101,9 @@ python3 -m http.server 5500
 | `/health` | `GET` | system | Server, PCA model, and subsystem readiness |
 | `/access/evaluate` | `POST` | kiosk | Complete fusion: Biometrics + Liveness + Schedule + Offline |
 | `/liveness/inspect` | `POST` | liveness | Sub-2s passive anti-spoofing inspection |
+| `/register` | `POST` | faces | Enrolls face photo with assigned role & schedule preset |
+| `/users` | `GET` | faces | Lists enrolled users with role and schedule metadata |
+| `/roles` | `GET` | schedule | Returns university role catalog, badges, and privilege metadata |
 | `/access/step-up/verify`| `POST` | step-up | Validates 6-digit TOTP, action challenge, or supervisor PIN |
 | `/access/step-up/current-otp`| `GET` | step-up | Returns active RFC 6238 TOTP code for test evaluation |
 | `/schedule/policies` | `GET` | schedule | Returns all campus zone hours and lockdown states |

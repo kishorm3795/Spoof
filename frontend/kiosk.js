@@ -104,10 +104,25 @@ function previewScheduleClearance() {
 
   if (!policy) return;
 
-  const isRoleAllowed = currentRole === "security" || policy.allowed_roles.includes(currentRole);
+  const isRoleAllowed =
+    currentRole === "security" ||
+    currentRole === "admin" ||
+    currentRole === "auto" ||
+    policy.allowed_roles.includes(currentRole) ||
+    (currentRole === "teacher" && policy.allowed_roles.includes("faculty"));
+
   if (!isRoleAllowed) {
     scheduleStatusVal.textContent = `ROLE '${currentRole.toUpperCase()}' RESTRICTED`;
     scheduleStatusVal.style.color = "var(--verdict-deny)";
+  } else if (currentRole === "admin") {
+    scheduleStatusVal.textContent = "UNIVERSAL ADMIN CLEARANCE";
+    scheduleStatusVal.style.color = "#A855F7";
+  } else if (currentRole === "security") {
+    scheduleStatusVal.textContent = "UNIVERSAL SECURITY CLEARANCE";
+    scheduleStatusVal.style.color = "var(--verdict-allow)";
+  } else if (currentRole === "auto") {
+    scheduleStatusVal.textContent = "AUTO-ROLE INFERENCE";
+    scheduleStatusVal.style.color = "var(--accent-cyan)";
   } else {
     scheduleStatusVal.textContent = `CLEARANCE ACTIVE (${policy.name.split(" ")[0]})`;
     scheduleStatusVal.style.color = "var(--verdict-allow)";

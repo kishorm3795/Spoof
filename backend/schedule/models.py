@@ -13,12 +13,18 @@ from typing import Optional
 
 
 class UserRole(str, Enum):
-    STUDENT    = "student"
-    FACULTY    = "faculty"
-    STAFF      = "staff"
-    VISITOR    = "visitor"
-    CONTRACTOR = "contractor"
-    SECURITY   = "security"
+    ADMIN       = "admin"
+    TEACHER     = "teacher"
+    FACULTY     = "faculty"
+    STUDENT     = "student"
+    USER        = "user"
+    RESEARCHER  = "researcher"
+    DEAN        = "dean"
+    STAFF       = "staff"
+    SECURITY    = "security"
+    VISITOR     = "visitor"
+    CONTRACTOR  = "contractor"
+    MAINTENANCE = "maintenance"
 
 
 class CampusZone(str, Enum):
@@ -28,6 +34,8 @@ class CampusZone(str, Enum):
     ADMIN_OFFICE     = "admin_office"
     DORMITORY        = "dormitory"
     SERVER_ROOM      = "server_room_high_security"
+    FACULTY_LOUNGE   = "faculty_lounge"
+    CLASSROOM_HALL   = "classroom_hall"
 
 
 class DecisionOutcome(str, Enum):
