@@ -281,9 +281,14 @@ class CampusScheduleEngine:
                     "campus_holiday_closed",
                 )
 
-        # Security personnel always have bypass privileges across standard campus facilities
+# Universal Clearance Privileges:
+        # 1. Security personnel always have bypass privileges across standard campus facilities
         if role_enum == UserRole.SECURITY:
             return DecisionOutcome.ALLOW, "Security personnel authorized across all facilities", "security_clearance"
+
+        # 2. Campus Administrators have universal administrative override across all facilities
+        if role_enum == UserRole.ADMIN:
+            return DecisionOutcome.ALLOW, "Campus Administrator authorized with universal executive clearance", "admin_clearance"
 
         # Check role permission
         if role_enum not in policy.allowed_roles:
