@@ -361,6 +361,111 @@ def get_schedule_policies():
     return {"zones": out, "active_lockdowns": {k.value: v for k, v in schedule_engine.active_lockdowns.items()}}
 
 
+@app.get("/roles", tags=["schedule"])
+def get_roles_catalog():
+    """Returns all supported university roles with clearance descriptions and styling metadata."""
+    return {
+        "roles": [
+            {
+                "id": "admin",
+                "title": "Campus Administrator",
+                "category": "Administration",
+                "description": "Universal administrative executive clearance across all campus facilities & server rooms",
+                "badge_color": "#A855F7",
+                "universal_clearance": True,
+            },
+            {
+                "id": "teacher",
+                "title": "Teacher / Professor",
+                "category": "Academic",
+                "description": "Faculty lounge, classrooms, library, and 24/7 research laboratory privileges",
+                "badge_color": "#3B82F6",
+                "universal_clearance": False,
+            },
+            {
+                "id": "student",
+                "title": "Student",
+                "category": "Academic",
+                "description": "Standard classroom, library, dormitory, and laboratory daytime curfew access",
+                "badge_color": "#10B981",
+                "universal_clearance": False,
+            },
+            {
+                "id": "user",
+                "title": "General Campus User",
+                "category": "General",
+                "description": "Registered campus attendee with main gate, library, and public concourse clearance",
+                "badge_color": "#06B6D4",
+                "universal_clearance": False,
+            },
+            {
+                "id": "faculty",
+                "title": "Faculty Member",
+                "category": "Academic",
+                "description": "Department faculty with classroom, lab, library, and faculty lounge access",
+                "badge_color": "#2563EB",
+                "universal_clearance": False,
+            },
+            {
+                "id": "researcher",
+                "title": "Research Fellow",
+                "category": "Academic",
+                "description": "Specialized lab clearance, engineering computing facilities, and library",
+                "badge_color": "#14B8A6",
+                "universal_clearance": False,
+            },
+            {
+                "id": "dean",
+                "title": "Academic Dean",
+                "category": "Administration",
+                "description": "Senior executive dean clearance across academic and administrative wings",
+                "badge_color": "#EC4899",
+                "universal_clearance": True,
+            },
+            {
+                "id": "staff",
+                "title": "IT & Administrative Staff",
+                "category": "Operations",
+                "description": "Administrative offices and datacenter maintenance clearance",
+                "badge_color": "#F97316",
+                "universal_clearance": False,
+            },
+            {
+                "id": "security",
+                "title": "Campus Security Officer",
+                "category": "Security",
+                "description": "24/7 Universal campus clearance, patrol bypass, and emergency response",
+                "badge_color": "#EF4444",
+                "universal_clearance": True,
+            },
+            {
+                "id": "visitor",
+                "title": "Visitor / Guest",
+                "category": "Public",
+                "description": "Temporary daytime pass for campus perimeter and public facilities",
+                "badge_color": "#64748B",
+                "universal_clearance": False,
+            },
+            {
+                "id": "contractor",
+                "title": "Contractor / Vendor",
+                "category": "Operations",
+                "description": "Scheduled facility maintenance and contractor work window",
+                "badge_color": "#EAB308",
+                "universal_clearance": False,
+            },
+            {
+                "id": "maintenance",
+                "title": "Facilities & Maintenance",
+                "category": "Operations",
+                "description": "Utility infrastructure, laboratory servicing, dormitories, and repairs",
+                "badge_color": "#8B5CF6",
+                "universal_clearance": False,
+            },
+        ]
+    }
+
+
 @app.post("/schedule/lockdown", tags=["schedule"])
 def toggle_zone_lockdown(
     zone: str = Form(..., description="Campus zone to lock down"),
