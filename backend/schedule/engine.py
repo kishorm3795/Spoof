@@ -160,6 +160,47 @@ class CampusScheduleEngine:
                 is_high_security=True,
                 requires_step_up_always=False,  # Regular hours standard match; off-hours step-up
             ),
+
+            # 7. Faculty Lounge: Academic staff relaxation and meeting space
+            CampusZone.FACULTY_LOUNGE: ZonePolicy(
+                zone=CampusZone.FACULTY_LOUNGE,
+                name="Faculty & Department Lounge",
+                allowed_roles=[
+                    UserRole.TEACHER,
+                    UserRole.FACULTY,
+                    UserRole.DEAN,
+                    UserRole.ADMIN,
+                    UserRole.STAFF,
+                    UserRole.SECURITY,
+                    UserRole.MAINTENANCE,
+                ],
+                schedule_windows=[
+                    TimeWindow(6, 0, 23, 0, all_days),
+                ],
+                after_hours_grace_minutes=60,
+                is_high_security=False,
+            ),
+
+            # 8. Classroom Hall: Lecture halls & standard teaching rooms
+            CampusZone.CLASSROOM_HALL: ZonePolicy(
+                zone=CampusZone.CLASSROOM_HALL,
+                name="Lecture Halls & Academic Classrooms",
+                allowed_roles=[
+                    UserRole.TEACHER,
+                    UserRole.FACULTY,
+                    UserRole.DEAN,
+                    UserRole.ADMIN,
+                    UserRole.STUDENT,
+                    UserRole.STAFF,
+                    UserRole.SECURITY,
+                    UserRole.MAINTENANCE,
+                ],
+                schedule_windows=[
+                    TimeWindow(7, 30, 21, 30, [0, 1, 2, 3, 4, 5]),
+                ],
+                after_hours_grace_minutes=45,
+                is_high_security=False,
+            ),
         }
 
     def evaluate_schedule(
