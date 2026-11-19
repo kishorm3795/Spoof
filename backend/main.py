@@ -23,7 +23,8 @@ import numpy as np
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import RAW_FACES_PATH, K
+import json
+from config import RAW_FACES_PATH, USER_METADATA_PATH, K
 from image_utils import preprocess_bytes, preprocess_bytes_with_info
 from pca_engine import PCAEngine
 from chroma_store import ChromaStore
@@ -84,6 +85,22 @@ def _load_raw() -> tuple[list[str], np.ndarray]:
 def _save_raw(names: list[str], X: np.ndarray) -> None:
     RAW_FACES_PATH.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(RAW_FACES_PATH, names=np.array(names), X=X)
+
+
+def _load_user_metadata() -> dict[str, dict]:
+    if not USER_METADATA_PATH.exists():
+        return {}
+    try:
+        with open(USER_METADATA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_user_metadata(meta: dict[str, dict]) -> None:
+    USER_METADATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(USER_METADATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2)
 
 
 def _retrain_and_upsert() -> int:
