@@ -148,6 +148,8 @@ async def inspect_liveness(
 @app.post("/register", tags=["faces"])
 async def register(
     name:  str        = Form(..., description="User's full name"),
+    role:  str        = Form(default="student", description="Campus user role (admin, teacher, student, user, researcher, dean, staff, security, visitor)"),
+    schedule_preset: str = Form(default="campus_hours", description="Schedule preset (campus_hours, 24x7, lab_hours, none)"),
     image: UploadFile = File(..., description="Face image (jpg, png, etc.)"),
 ):
     """
@@ -155,8 +157,9 @@ async def register(
 
     1. Detect + crop face region, apply CLAHE normalisation
     2. Append preprocessed vector to raw face store
-    3. Retrain PCA with all stored faces
-    4. Re-project everyone → upsert Ω vectors into vector store
+    3. Save user role & schedule metadata
+    4. Retrain PCA with all stored faces
+    5. Re-project everyone → upsert Ω vectors into vector store
     """
     if not name.strip():
         raise HTTPException(status_code=400, detail="Name must not be empty.")
@@ -178,12 +181,23 @@ async def register(
 
     _save_raw(names, X)
 
+    # Store user role and metadata
+    clean_role = role.strip().lower()
+    meta = _load_user_metadata()
+    meta[name] = {
+        "role": clean_role,
+        "schedule": schedule_preset,
+        "enrolledAt": datetime.now().strftime("%Y-%m-%d"),
+    }
+    _save_user_metadata(meta)
+
     n = _retrain_and_upsert()
 
     return {
         "success":     True,
-        "message":     f"'{name}' registered. Model trained with {n} face(s).",
+        "message":     f"'{name}' registered as {clean_role.upper()}. Model trained with {n} face(s).",
         "total_users": n,
+        "role":        clean_role,
         "model_ready": pca.is_trained,
         "face_detected": face_found,   # frontend can warn if False
     }
