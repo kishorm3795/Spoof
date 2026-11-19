@@ -221,3 +221,42 @@ def test_teacher_faculty_lounge_and_lab_extended(engine):
 
     out_server, _, _ = engine.evaluate_schedule(UserRole.TEACHER, CampusZone.SERVER_ROOM, afternoon)
     assert out_server == DecisionOutcome.DENY
+
+
+def test_student_all_persona_clearances(engine):
+    daytime = datetime(2026, 11, 17, 14, 0)
+    night = datetime(2026, 11, 17, 23, 30)
+
+    # 1. Dormitory: 24/7 allowed
+    out_dorm, _, _ = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.DORMITORY, night)
+    assert out_dorm == DecisionOutcome.ALLOW
+
+    # 2. Classroom Hall: allowed in daytime
+    out_class, _, _ = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.CLASSROOM_HALL, daytime)
+    assert out_class == DecisionOutcome.ALLOW
+
+    # 3. Library: allowed in daytime
+    out_lib, _, _ = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.LIBRARY, daytime)
+    assert out_lib == DecisionOutcome.ALLOW
+
+    # 4. Engineering Lab: allowed in daytime, grace step-up at night, denied past curfew
+    out_lab_day, _, _ = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.ENGINEERING_LAB, daytime)
+    assert out_lab_day == DecisionOutcome.ALLOW
+
+    grace_time = datetime(2026, 11, 17, 20, 45)
+    out_lab_grace, _, st_grace = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.ENGINEERING_LAB, grace_time)
+    assert out_lab_grace == DecisionOutcome.STEP_UP_VERIFICATION
+    assert st_grace == "after_hours_grace"
+
+    out_lab_curfew, _, _ = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.ENGINEERING_LAB, night)
+    assert out_lab_curfew == DecisionOutcome.DENY
+
+    # 5. Unauthorized zones: faculty lounge, admin office, server room
+    out_lounge, _, _ = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.FACULTY_LOUNGE, daytime)
+    assert out_lounge == DecisionOutcome.DENY
+
+    out_admin_off, _, _ = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.ADMIN_OFFICE, daytime)
+    assert out_admin_off == DecisionOutcome.DENY
+
+    out_server, _, _ = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.SERVER_ROOM, daytime)
+    assert out_server == DecisionOutcome.DENY
