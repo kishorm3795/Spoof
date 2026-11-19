@@ -184,3 +184,40 @@ def test_admin_lockdown_override(engine):
 
     out_sec, _, _ = engine.evaluate_schedule("security", "engineering_lab", tuesday_noon)
     assert out_sec == DecisionOutcome.ALLOW
+
+
+def test_teacher_faculty_lounge_and_lab_extended(engine):
+    # Teacher can access Faculty Lounge during standard operating hours
+    afternoon = datetime(2026, 11, 17, 15, 0)
+    out_teacher, _, status = engine.evaluate_schedule(
+        UserRole.TEACHER, CampusZone.FACULTY_LOUNGE, afternoon
+    )
+    assert out_teacher == DecisionOutcome.ALLOW
+    assert status == "within_schedule"
+
+    # Teacher can access Classrooms during academic hours
+    out_class, _, status_class = engine.evaluate_schedule(
+        UserRole.TEACHER, CampusZone.CLASSROOM_HALL, afternoon
+    )
+    assert out_class == DecisionOutcome.ALLOW
+
+    # Students cannot access Faculty Lounge
+    out_student, _, _ = engine.evaluate_schedule(
+        UserRole.STUDENT, CampusZone.FACULTY_LOUNGE, afternoon
+    )
+    assert out_student == DecisionOutcome.DENY
+
+    # Teachers have extended 24/7 research privileges in engineering lab (past student curfew)
+    late_night = datetime(2026, 11, 17, 23, 45)
+    out_lab, _, status_lab = engine.evaluate_schedule(
+        UserRole.TEACHER, CampusZone.ENGINEERING_LAB, late_night
+    )
+    assert out_lab == DecisionOutcome.ALLOW
+    assert status_lab == "faculty_research_clearance"
+
+    # Teacher denied from student dormitories and server room
+    out_dorm, _, _ = engine.evaluate_schedule(UserRole.TEACHER, CampusZone.DORMITORY, afternoon)
+    assert out_dorm == DecisionOutcome.DENY
+
+    out_server, _, _ = engine.evaluate_schedule(UserRole.TEACHER, CampusZone.SERVER_ROOM, afternoon)
+    assert out_server == DecisionOutcome.DENY
