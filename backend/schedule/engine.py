@@ -62,12 +62,18 @@ class CampusScheduleEngine:
                 zone=CampusZone.MAIN_GATE,
                 name="Campus Main Entrance",
                 allowed_roles=[
-                    UserRole.STUDENT,
+                    UserRole.ADMIN,
+                    UserRole.DEAN,
+                    UserRole.TEACHER,
                     UserRole.FACULTY,
+                    UserRole.STUDENT,
+                    UserRole.USER,
+                    UserRole.RESEARCHER,
                     UserRole.STAFF,
+                    UserRole.SECURITY,
                     UserRole.VISITOR,
                     UserRole.CONTRACTOR,
-                    UserRole.SECURITY,
+                    UserRole.MAINTENANCE,
                 ],
                 schedule_windows=[
                     # 24/7 for regular campus members
@@ -82,12 +88,18 @@ class CampusScheduleEngine:
                 zone=CampusZone.ENGINEERING_LAB,
                 name="Engineering Research & Computer Lab",
                 allowed_roles=[
-                    UserRole.STUDENT,
+                    UserRole.ADMIN,
+                    UserRole.DEAN,
+                    UserRole.TEACHER,
                     UserRole.FACULTY,
+                    UserRole.RESEARCHER,
+                    UserRole.STUDENT,
+                    UserRole.STAFF,
                     UserRole.SECURITY,
+                    UserRole.MAINTENANCE,
                 ],
                 schedule_windows=[
-                    # Mon-Sat 08:00 to 20:00 regular access
+                    # Mon-Sat 08:00 to 20:00 regular access for students
                     TimeWindow(8, 0, 20, 0, [0, 1, 2, 3, 4, 5]),
                 ],
                 after_hours_grace_minutes=120,  # 20:00 to 22:00 allowed with step-up verification
@@ -99,10 +111,16 @@ class CampusScheduleEngine:
                 zone=CampusZone.LIBRARY,
                 name="Central Academic Library",
                 allowed_roles=[
-                    UserRole.STUDENT,
+                    UserRole.ADMIN,
+                    UserRole.DEAN,
+                    UserRole.TEACHER,
                     UserRole.FACULTY,
+                    UserRole.RESEARCHER,
+                    UserRole.STUDENT,
+                    UserRole.USER,
                     UserRole.STAFF,
                     UserRole.SECURITY,
+                    UserRole.VISITOR,
                 ],
                 schedule_windows=[
                     # 07:00 to 23:00 everyday
@@ -117,7 +135,10 @@ class CampusScheduleEngine:
                 zone=CampusZone.ADMIN_OFFICE,
                 name="Administrative & Registrar Offices",
                 allowed_roles=[
+                    UserRole.ADMIN,
+                    UserRole.DEAN,
                     UserRole.STAFF,
+                    UserRole.TEACHER,
                     UserRole.FACULTY,
                     UserRole.SECURITY,
                 ],
@@ -135,7 +156,9 @@ class CampusScheduleEngine:
                 name="Student Residential Dormitories",
                 allowed_roles=[
                     UserRole.STUDENT,
+                    UserRole.ADMIN,
                     UserRole.SECURITY,
+                    UserRole.MAINTENANCE,
                 ],
                 schedule_windows=[
                     TimeWindow(0, 0, 23, 59, all_days),
@@ -149,8 +172,10 @@ class CampusScheduleEngine:
                 zone=CampusZone.SERVER_ROOM,
                 name="High-Security Datacenter & Server Room",
                 allowed_roles=[
+                    UserRole.ADMIN,
                     UserRole.STAFF,
                     UserRole.SECURITY,
+                    UserRole.MAINTENANCE,
                 ],
                 schedule_windows=[
                     # Standard maintenance hours: Mon-Fri 09:00 to 17:00
