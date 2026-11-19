@@ -286,3 +286,41 @@ def test_user_general_access_rules(engine):
 
     out_lab, _, _ = engine.evaluate_schedule("user", "engineering_lab", afternoon)
     assert out_lab == DecisionOutcome.DENY
+
+
+def test_role_synonym_resolution(engine):
+    tuesday_noon = datetime(2026, 11, 17, 12, 0)
+    # Professor synonym
+    out1, _, _ = engine.evaluate_schedule("professor", "classroom_hall", tuesday_noon)
+    assert out1 == DecisionOutcome.ALLOW
+
+    # Superadmin synonym
+    out2, _, _ = engine.evaluate_schedule("superadmin", "server_room", tuesday_noon)
+    assert out2 == DecisionOutcome.ALLOW
+
+    # Pupil synonym
+    out3, _, _ = engine.evaluate_schedule("pupil", "dormitory", tuesday_noon)
+    assert out3 == DecisionOutcome.ALLOW
+
+
+if __name__ == "__main__":
+    tests = [
+        test_student_engineering_lab_normal_hours,
+        test_student_engineering_lab_after_hours_grace,
+        test_student_engineering_lab_curfew_denied,
+        test_student_server_room_unauthorized,
+        test_security_personnel_universal_clearance,
+        test_biometric_fusion_truth_table,
+        test_emergency_lockdown,
+        test_campus_holiday,
+        test_admin_universal_clearance,
+        test_admin_lockdown_override,
+        test_teacher_faculty_lounge_and_lab_extended,
+        test_student_all_persona_clearances,
+        test_user_general_access_rules,
+        test_role_synonym_resolution,
+    ]
+    for t in tests:
+        t(engine())
+        print(f"PASS: {t.__name__}")
+    print(f"\nSuccessfully executed all {len(tests)} schedule tests!")
