@@ -243,17 +243,66 @@ class CampusScheduleEngine:
         if isinstance(role, UserRole):
             role_enum = role
         else:
-            role_str = str(role).split(".")[-1].lower()
-            role_enum = UserRole(role_str)
+            role_raw = str(role).split(".")[-1].strip().lower()
+            role_aliases = {
+                "admin":         UserRole.ADMIN,
+                "administrator": UserRole.ADMIN,
+                "superadmin":    UserRole.ADMIN,
+                "sysadmin":      UserRole.ADMIN,
+                "teacher":       UserRole.TEACHER,
+                "prof":          UserRole.TEACHER,
+                "professor":     UserRole.TEACHER,
+                "instructor":    UserRole.TEACHER,
+                "faculty":       UserRole.FACULTY,
+                "student":       UserRole.STUDENT,
+                "pupil":         UserRole.STUDENT,
+                "user":          UserRole.USER,
+                "general_user":  UserRole.USER,
+                "member":        UserRole.USER,
+                "researcher":    UserRole.RESEARCHER,
+                "fellow":        UserRole.RESEARCHER,
+                "dean":          UserRole.DEAN,
+                "chair":         UserRole.DEAN,
+                "staff":         UserRole.STAFF,
+                "security":      UserRole.SECURITY,
+                "guard":         UserRole.SECURITY,
+                "visitor":       UserRole.VISITOR,
+                "guest":         UserRole.VISITOR,
+                "contractor":    UserRole.CONTRACTOR,
+                "maintenance":   UserRole.MAINTENANCE,
+            }
+            role_enum = role_aliases.get(role_raw)
+            if role_enum is None:
+                try:
+                    role_enum = UserRole(role_raw)
+                except ValueError:
+                    role_enum = UserRole.USER
 
         if isinstance(zone, CampusZone):
             zone_enum = zone
         else:
-            zone_clean = str(zone).split(".")[-1].lower()
-            if zone_clean in ["server_room", "server_room_high_security"]:
-                zone_enum = CampusZone.SERVER_ROOM
-            else:
-                zone_enum = CampusZone(zone_clean)
+            zone_clean = str(zone).split(".")[-1].strip().lower()
+            zone_aliases = {
+                "server_room":               CampusZone.SERVER_ROOM,
+                "server_room_high_security": CampusZone.SERVER_ROOM,
+                "datacenter":                CampusZone.SERVER_ROOM,
+                "faculty_lounge":            CampusZone.FACULTY_LOUNGE,
+                "lounge":                    CampusZone.FACULTY_LOUNGE,
+                "classroom_hall":            CampusZone.CLASSROOM_HALL,
+                "classrooms":                CampusZone.CLASSROOM_HALL,
+                "classroom":                 CampusZone.CLASSROOM_HALL,
+                "main_gate":                 CampusZone.MAIN_GATE,
+                "engineering_lab":           CampusZone.ENGINEERING_LAB,
+                "library":                   CampusZone.LIBRARY,
+                "admin_office":              CampusZone.ADMIN_OFFICE,
+                "dormitory":                 CampusZone.DORMITORY,
+            }
+            zone_enum = zone_aliases.get(zone_clean)
+            if zone_enum is None:
+                try:
+                    zone_enum = CampusZone(zone_clean)
+                except ValueError:
+                    return DecisionOutcome.DENY, f"Unknown campus zone: {zone}", "unknown_zone"
 
         if zone_enum not in self.policies:
             return DecisionOutcome.DENY, f"Unknown campus zone: {zone}", "unknown_zone"
@@ -265,23 +314,23 @@ class CampusScheduleEngine:
 
         # Emergency Lockdown Check
         is_locked, lock_reason = self.is_lockdown_active(zone_enum)
-        if is_locked and role_enum != UserRole.SECURITY:
+        if is_locked and role_enum not in [UserRole.SECURITY, UserRole.ADMIN]:
             return (
                 DecisionOutcome.DENY,
                 f"Facility {policy.name} is under emergency lockdown: {lock_reason}",
                 "emergency_lockdown",
             )
 
-        # Campus Holiday Check (academic facilities closed except security)
+        # Campus Holiday Check (academic facilities closed except security, admin, staff)
         if date_key in self.holidays and zone_enum not in [CampusZone.MAIN_GATE, CampusZone.DORMITORY]:
-            if role_enum not in [UserRole.SECURITY, UserRole.STAFF]:
+            if role_enum not in [UserRole.SECURITY, UserRole.ADMIN, UserRole.STAFF]:
                 return (
                     DecisionOutcome.DENY,
                     f"Campus holiday observed ({date_key}). Academic access suspended.",
                     "campus_holiday_closed",
                 )
 
-# Universal Clearance Privileges:
+        # Universal Clearance Privileges:
         # 1. Security personnel always have bypass privileges across standard campus facilities
         if role_enum == UserRole.SECURITY:
             return DecisionOutcome.ALLOW, "Security personnel authorized across all facilities", "security_clearance"
@@ -293,7 +342,6 @@ class CampusScheduleEngine:
         # 3. Academic Deans have senior administrative clearance
         if role_enum == UserRole.DEAN and zone_enum != CampusZone.SERVER_ROOM:
             return DecisionOutcome.ALLOW, "Academic Dean authorized with senior administrative clearance", "dean_clearance"
-
 
         # Check role permission
         if role_enum not in policy.allowed_roles:
@@ -307,8 +355,6 @@ class CampusScheduleEngine:
         if zone_enum == CampusZone.ENGINEERING_LAB and role_enum in [UserRole.TEACHER, UserRole.FACULTY, UserRole.RESEARCHER]:
             return DecisionOutcome.ALLOW, "Faculty & Research Fellow authorized for extended laboratory access", "faculty_research_clearance"
 
-
-        now = dt or datetime.now()
         weekday = now.weekday()
         hour = now.hour
         minute = now.minute
