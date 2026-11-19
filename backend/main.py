@@ -545,6 +545,12 @@ def delete_user(name: str):
     _save_raw(names, X)
     store.delete_face(name)
 
+    # Clean up user role metadata
+    meta = _load_user_metadata()
+    if name in meta:
+        meta.pop(name, None)
+        _save_user_metadata(meta)
+
     n = _retrain_and_upsert()
     return {
         "success":     True,
