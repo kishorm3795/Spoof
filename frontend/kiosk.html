@@ -163,12 +163,18 @@
         <div class="control-group">
           <label for="selectRole">Claimed User Role</label>
           <select id="selectRole">
-            <option value="student">Student</option>
-            <option value="faculty">Faculty Member</option>
+            <option value="auto">Auto-Detect Role (from Recognized Face)</option>
+            <option value="admin">Administrator (Campus Executive · All-Access)</option>
+            <option value="teacher">Teacher / Professor (Faculty &amp; Labs)</option>
+            <option value="student" selected>Student (Academic &amp; Dormitories)</option>
+            <option value="user">General Campus User (Baseline Pass)</option>
+            <option value="researcher">Research Fellow (24/7 Research Lab)</option>
+            <option value="dean">Academic Dean (Senior Executive)</option>
             <option value="staff">Administrative / IT Staff</option>
-            <option value="visitor">Visitor</option>
-            <option value="contractor">Contractor</option>
             <option value="security">Security Personnel (Universal Bypass)</option>
+            <option value="visitor">Visitor (Temporary Daytime Pass)</option>
+            <option value="contractor">Contractor / Operations</option>
+            <option value="maintenance">Facilities &amp; Maintenance</option>
           </select>
         </div>
 
