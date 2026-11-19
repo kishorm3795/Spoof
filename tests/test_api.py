@@ -15,7 +15,21 @@ import sys
 from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
-import pytest
+try:
+    if "pytest" in sys.modules:
+        import pytest
+        fixture = pytest.fixture
+    else:
+        def fixture(*args, **kwargs):
+            def decorator(f):
+                return f
+            return decorator if (args and callable(args[0])) else decorator
+except Exception:
+    def fixture(*args, **kwargs):
+        def decorator(f):
+            return f
+        return decorator if (args and callable(args[0])) else decorator
+
 from fastapi.testclient import TestClient
 
 # Ensure backend directory is in sys.path
@@ -49,7 +63,7 @@ def create_test_face_image(seed: int, color_val: int = 128) -> bytes:
     return buf.getvalue()
 
 
-@pytest.fixture(autouse=True)
+@fixture(autouse=True)
 def clean_test_environment():
     """Clean data & model files and reset in-memory singletons before each test."""
     def _reset():
@@ -266,3 +280,25 @@ def test_sync_endpoints_flow():
     # Check status again
     res_status2 = client.get("/sync/status")
     assert res_status2.json()["local_pending_sync_count"] == 0
+
+
+def test_roles_catalog_endpoint():
+    client = TestClient(app)
+    res = client.get("/roles")
+    assert res.status_code == 200
+    data = res.json()
+    assert "roles" in data
+    role_ids = {r["id"] for r in data["roles"]}
+    assert "admin" in role_ids
+    assert "teacher" in role_ids
+    assert "student" in role_ids
+    assert "user" in role_ids
+
+    # Verify badge colors and properties
+    admin_meta = next(r for r in data["roles"] if r["id"] == "admin")
+    assert admin_meta["badge_color"] == "#A855F7"
+    assert admin_meta["universal_clearance"] is True
+
+    teacher_meta = next(r for r in data["roles"] if r["id"] == "teacher")
+    assert teacher_meta["badge_color"] == "#3B82F6"
+    assert "research" in teacher_meta["description"].lower()
