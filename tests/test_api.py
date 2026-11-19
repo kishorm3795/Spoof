@@ -302,3 +302,78 @@ def test_roles_catalog_endpoint():
     teacher_meta = next(r for r in data["roles"] if r["id"] == "teacher")
     assert teacher_meta["badge_color"] == "#3B82F6"
     assert "research" in teacher_meta["description"].lower()
+
+
+def test_registration_with_assigned_role_and_auto_detection():
+    client = TestClient(app)
+
+    # 1. Register Dr. Marcus Vance with role="teacher" and schedule="lab_hours"
+    vance_img = create_test_face_image(seed=55, color_val=130)
+    res1 = client.post(
+        "/register",
+        data={"name": "Dr. Marcus Vance", "role": "teacher", "schedule_preset": "lab_hours"},
+        files={"image": ("vance.png", vance_img, "image/png")},
+    )
+    assert res1.status_code == 200
+    assert res1.json()["role"] == "teacher"
+
+    # 2. Register Alice with role="student" and schedule="campus_hours"
+    alice_img = create_test_face_image(seed=66, color_val=150)
+    res2 = client.post(
+        "/register",
+        data={"name": "Alice Chen", "role": "student", "schedule_preset": "campus_hours"},
+        files={"image": ("alice.png", alice_img, "image/png")},
+    )
+    assert res2.status_code == 200
+    assert res2.json()["role"] == "student"
+
+    # Verify metadata in GET /users
+    users_res = client.get("/users")
+    assert users_res.status_code == 200
+    meta = users_res.json()["metadata"]
+    assert meta["Dr. Marcus Vance"]["role"] == "teacher"
+    assert meta["Alice Chen"]["role"] == "student"
+
+    # 3. Test /access/evaluate with role="auto" for Dr. Marcus Vance at 23:45 in engineering_lab
+    # Teacher has 24/7 research lab privileges -> should be ALLOW with auto-detected role "teacher"
+    res_eval = client.post(
+        "/access/evaluate",
+        data={
+            "role": "auto",
+            "zone": "engineering_lab",
+            "simulated_time": "2026-11-17T23:45:00",
+        },
+        files={"image": ("vance_test.png", vance_img, "image/png")},
+    )
+    assert res_eval.status_code == 200
+    data_eval = res_eval.json()
+    assert data_eval["final_decision"] == "ALLOW"
+    assert data_eval["schedule"]["role"] == "teacher"
+    assert data_eval["schedule"]["role_auto_detected"] is True
+    assert data_eval["schedule"]["enrolled_role"] == "teacher"
+
+
+if __name__ == "__main__":
+    test_list = [
+        test_health_initial,
+        test_registration_and_verification_pipeline,
+        test_liveness_inspect_endpoint,
+        test_unified_access_evaluate_endpoint,
+        test_offline_mode_in_access_evaluate,
+        test_step_up_verification_endpoint,
+        test_sync_endpoints_flow,
+        test_roles_catalog_endpoint,
+        test_registration_with_assigned_role_and_auto_detection,
+    ]
+    for t in test_list:
+        clean_fn = clean_test_environment()
+        next(clean_fn)
+        try:
+            t()
+            print(f"PASS: {t.__name__}", flush=True)
+        finally:
+            try:
+                next(clean_fn)
+            except StopIteration:
+                pass
+    print(f"\nAll {len(test_list)} API tests successfully passed!", flush=True)
