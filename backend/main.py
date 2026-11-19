@@ -517,7 +517,20 @@ def trigger_performance_benchmark():
 
 @app.get("/users", tags=["faces"])
 def list_users():
-    return {"users": store.list_users(), "count": store.count()}
+    users = store.list_users()
+    meta = _load_user_metadata()
+    return {
+        "users": users,
+        "count": store.count(),
+        "metadata": {
+            u: meta.get(u, {
+                "role": "student",
+                "schedule": "campus_hours",
+                "enrolledAt": "2026-11-17",
+            })
+            for u in users
+        },
+    }
 
 
 @app.delete("/users/{name}", tags=["faces"])
