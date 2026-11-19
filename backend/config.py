@@ -12,6 +12,7 @@ DATA_DIR.mkdir(exist_ok=True)
 EIGENFACES_PATH = MODEL_DIR / "eigenfaces.npz"   # stores U and mean_face
 RAW_FACES_PATH  = DATA_DIR  / "raw_faces.npz"    # stores raw pixel vectors + labels
 VECTOR_STORE_PATH = DATA_DIR / "vector_store.npz"
+USER_METADATA_PATH = DATA_DIR / "user_metadata.json"  # stores user roles & enrollment metadata
 
 # ── PCA settings ────────────────────────────────────────────────────────
 IMG_SIZE = 100          # images resized to IMG_SIZE × IMG_SIZE
@@ -51,15 +52,23 @@ DEFAULT_CAMPUS_ZONES = [
     "admin_office",
     "dormitory",
     "server_room_high_security",
+    "faculty_lounge",
+    "classroom_hall",
 ]
 
 DEFAULT_USER_ROLES = [
-    "student",
+    "admin",
+    "teacher",
     "faculty",
+    "student",
+    "user",
+    "researcher",
+    "dean",
     "staff",
+    "security",
     "visitor",
     "contractor",
-    "security_admin",
+    "maintenance",
 ]
 
 AFTER_HOURS_GRACE_MINUTES = 60 # Allow step-up verification during 60 min after curfew
