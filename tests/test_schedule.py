@@ -260,3 +260,29 @@ def test_student_all_persona_clearances(engine):
 
     out_server, _, _ = engine.evaluate_schedule(UserRole.STUDENT, CampusZone.SERVER_ROOM, daytime)
     assert out_server == DecisionOutcome.DENY
+
+
+def test_user_general_access_rules(engine):
+    afternoon = datetime(2026, 11, 17, 14, 0)
+    # General campus user can access Main Gate and Library
+    out_gate, _, _ = engine.evaluate_schedule(UserRole.USER, CampusZone.MAIN_GATE, afternoon)
+    assert out_gate == DecisionOutcome.ALLOW
+
+    out_lib, _, _ = engine.evaluate_schedule("user", "library", afternoon)
+    assert out_lib == DecisionOutcome.ALLOW
+
+    # General campus user is denied from classroom hall, faculty lounge, server room, and admin office
+    out_class, _, _ = engine.evaluate_schedule(UserRole.USER, CampusZone.CLASSROOM_HALL, afternoon)
+    assert out_class == DecisionOutcome.DENY
+
+    out_lounge, _, _ = engine.evaluate_schedule(UserRole.USER, CampusZone.FACULTY_LOUNGE, afternoon)
+    assert out_lounge == DecisionOutcome.DENY
+
+    out_server, _, _ = engine.evaluate_schedule(UserRole.USER, CampusZone.SERVER_ROOM, afternoon)
+    assert out_server == DecisionOutcome.DENY
+
+    out_office, _, _ = engine.evaluate_schedule("user", "admin_office", afternoon)
+    assert out_office == DecisionOutcome.DENY
+
+    out_lab, _, _ = engine.evaluate_schedule("user", "engineering_lab", afternoon)
+    assert out_lab == DecisionOutcome.DENY
