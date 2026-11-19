@@ -303,6 +303,11 @@ class CampusScheduleEngine:
                 "unauthorized_role",
             )
 
+        # Teachers, Faculty, and Researchers have 24/7 research lab privileges
+        if zone_enum == CampusZone.ENGINEERING_LAB and role_enum in [UserRole.TEACHER, UserRole.FACULTY, UserRole.RESEARCHER]:
+            return DecisionOutcome.ALLOW, "Faculty & Research Fellow authorized for extended laboratory access", "faculty_research_clearance"
+
+
         now = dt or datetime.now()
         weekday = now.weekday()
         hour = now.hour
