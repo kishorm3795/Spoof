@@ -18,12 +18,12 @@ Auto-generated Swagger UI available at http://localhost:8000/docs
 from __future__ import annotations
 
 import time
+import json
 from datetime import datetime
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-import json
 from config import RAW_FACES_PATH, USER_METADATA_PATH, K
 from image_utils import preprocess_bytes, preprocess_bytes_with_info
 from pca_engine import PCAEngine
@@ -238,7 +238,7 @@ async def verify(
 @app.post("/access/evaluate", tags=["kiosk"])
 async def evaluate_kiosk_access(
     image: UploadFile = File(..., description="Face image from entry camera"),
-    role: str = Form(default="student", description="Claimed user role"),
+    role: str = Form(default="auto", description="Claimed user role or 'auto' to auto-detect from enrolled profile"),
     zone: str = Form(default="main_gate", description="Target campus facility zone"),
     offline: bool = Form(default=False, description="Simulate offline air-gapped kiosk mode"),
     simulated_time: str = Form(default="", description="Optional simulated ISO datetime string for schedule testing"),
@@ -294,12 +294,24 @@ async def evaluate_kiosk_access(
         biometric_outcome = "ALLOW"
         bio_reason = f"Live person confirmed and matched to enrolled identity '{matched_name}'"
 
+    # Resolve effective role (auto-resolve from registered identity if requested)
+    is_auto_role = role.strip().lower() in ["", "auto", "default"]
+    enrolled_role = None
+    if is_identity_match and matched_name != "Unknown":
+        user_meta = _load_user_metadata().get(matched_name, {})
+        enrolled_role = user_meta.get("role", "student")
+
+    if is_auto_role:
+        effective_role = enrolled_role or "visitor"
+    else:
+        effective_role = role.strip()
+
     # 3. Handle Offline vs Online Mode
     if offline:
         offline_res = local_evaluator.evaluate_offline(
             biometric_match=is_identity_match,
             user_name=matched_name,
-            user_role=role,
+            user_role=effective_role,
             zone=zone,
             cosine_distance=cosine_dist,
             liveness_score=liveness_res["liveness_score"],
@@ -314,7 +326,7 @@ async def evaluate_kiosk_access(
         schedule_eval = schedule_engine.evaluate_access(
             biometric_outcome=biometric_outcome,
             user_name=matched_name,
-            user_role=role,
+            user_role=effective_role,
             zone=zone,
             dt=dt_now,
         )
@@ -337,9 +349,12 @@ async def evaluate_kiosk_access(
             "identity":   identity_res,
         },
         "schedule": {
-            "zone":            zone,
-            "role":            role,
-            "schedule_status": sched_status,
+            "zone":               zone,
+            "role":               effective_role,
+            "claimed_role":       role,
+            "enrolled_role":      enrolled_role,
+            "role_auto_detected": is_auto_role,
+            "schedule_status":    sched_status,
         },
         "offline_mode":     offline,
         "total_latency_ms": round(elapsed_ms, 2),
